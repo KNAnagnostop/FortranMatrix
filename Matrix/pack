@@ -1,0 +1,18 @@
+#!/bin/bash
+
+cdir=`pwd`
+
+files=(matrix_mod*.f90 array_mod.f90 hello.f90 Makefile Readme.md Copyright matrix_proclist matrix_proclist.pdf tensorprod_mod.f90 pack README.md TensorProduct/test*.f90 TensorProduct/Makefile TensorProduct/README Tests/test*.f90)
+ dirs=(lib Documentation)
+
+
+# Filenames with Matrix/ prepended:
+all=("${files[@]/#/Matrix/}" "${dirs[@]/#/Matrix/}")
+
+cd ..
+
+tar cvfz Matrix/Matrix.tgz ${all[@]}
+
+
+
+
