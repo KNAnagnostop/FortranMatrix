@@ -51,7 +51,7 @@ program hello_world
  
  i=3;
  v2 = lmatmul(M,evec(:,i)) - eval(i) * evec(:,i)  !M.v - λ v = 0
- call print( v2 )                                 !The library's printing subroutine for allocatable arrays
+ call print( v2 )                                 !The library printing subroutine for allocatable arrays
 
  !Diagonalize m:
  P    = evec ; Pinv = inverse(P)
