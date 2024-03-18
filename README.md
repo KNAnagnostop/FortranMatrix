@@ -32,11 +32,10 @@ program hello_world
  complex(8)              :: z
  complex(8), allocatable :: s0(:,:), s1(:,:), s2(:,:), s3(:,:), gamma(:,:)
 
- n = 8
+ n = 8  ;    allocate(m(n,n),v(n))
 
- allocate(m(n,n),v(n))
-
- !create random entries in the arrays:  overloaded random_number() for complex arrays, and for Gaussian random numbers
+ !overloaded random_number() for complex arrays, and for Gaussian random numbers
+ !create random entries in the arrays  in a Gaussian distribution with σ=1:  
  call matrix_random_init                          ! seed random number from /dev/urandom
  call random_number(M,sigma=1._8); call random_number(v,sigma=1._8) 
  
