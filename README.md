@@ -8,7 +8,7 @@ The programming is aiming at performance, and the fortran 77 version of Lapack a
 
 ## Documentation
 
-The up to date documentation [array  module documentation](https://docs.google.com/document/d/19KoFFvpxTcm9FN1zGqdGaBopyJhl2vYA0D1mEHbTUZ8/edit?usp=sharing).
+The up to date documentation can be found at [array  module documentation](https://docs.google.com/document/d/19KoFFvpxTcm9FN1zGqdGaBopyJhl2vYA0D1mEHbTUZ8/edit?usp=sharing).
 
 The [matrix module documentation](https://docs.google.com/document/d/1PLhbGWSkTO2lGfq7dNz5SUUcmbekR8NTH-dGsxdLsfs/edit?usp=sharing). The matrix module is mostly written for educational reasons, and is not to be used for HPC applications.
 
@@ -32,10 +32,10 @@ program hello_world
  complex(8)              :: z
  complex(8), allocatable :: s0(:,:), s1(:,:), s2(:,:), s3(:,:), gamma(:,:)
 
- n = 8  ;    allocate(m(n,n),v(n))
+ n = 8  ; allocate(m(n,n),v(n))
 
  !overloaded random_number() for complex arrays, and for Gaussian random numbers
- !create random entries in the arrays  in a Gaussian distribution with σ=1:  
+ !create random entries in the arrays in a Gaussian distribution with σ=1:
  call matrix_random_init                          ! seed random number from /dev/urandom
  call random_number(M,sigma=1._8); call random_number(v,sigma=1._8) 
  
@@ -50,7 +50,7 @@ program hello_world
  
  i=3;
  v2 = lmatmul(M,evec(:,i)) - eval(i) * evec(:,i)  !M.v - λ v = 0
- call print( v2 )                                 !The library printing subroutine for allocatable arrays
+ call print( v2 )                                 !The library's printing subroutine for allocatable arrays
 
  !Diagonalize m:
  P    = evec ; Pinv = inverse(P)
@@ -74,4 +74,3 @@ end program hello_world
 ```
  
  
-
