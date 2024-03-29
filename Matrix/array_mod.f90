@@ -14,7 +14,7 @@ module              array_mod                                                   
  public                                 :: hermitian, hermitian_set, symmetric, symmetric_set, antisymmetric, antisymmetric_set     !:.:.:
  public                                 :: diagonal, diagonalMatrix, trace, trace2, trace2c, traceless, traceless_set               !:.:.:
  public                                 :: identitymatrix, cidentitymatrix, didentitymatrix, paulimatrix                            !:.:.:
- public                                 :: norm, isHermitian, isSymmetric, isAntisymmetric, sort                                    !:.:.:
+ public                                 :: norm, isHermitian, isSymmetric, isAntisymmetric, sort, random_sort, random_sort_array    !:.:.:
  public                                 :: random_number, matrix_random_init                                                        !:.:.:
  public                                 :: print, printna, save, read, isNaN, NaN                                                   !:.:.:
  public                                 :: operator(.mm.)                                                                           !:.:.:

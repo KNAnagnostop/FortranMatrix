@@ -158,6 +158,15 @@ module              matrix_mod_array                                            
   module procedure :: array1_sort,array1_sort_d
  end interface      sort
 !-----------------------------------------------------------------------------------------------------------------------------------
+ interface          random_sort                                                                                                     !:.:.:
+  module procedure :: random_sort_fun_i, random_sort_fun_d, random_sort_fun_c, random_sort_fun_char
+  module procedure :: random_list_n    
+ end interface      random_sort
+!-----------------------------------------------------------------------------------------------------------------------------------
+ interface          random_sort_array                                                                                               !:.:.:
+  module procedure :: random_sort_i    , random_sort_d    , random_sort_c
+ end interface      random_sort_array
+!-----------------------------------------------------------------------------------------------------------------------------------
  interface          print                                                                                                           !:.:.:
   module procedure :: array2_print,array2_print_d
   module procedure :: array1_print,array1_print_d
@@ -1788,6 +1797,225 @@ contains
   if (j+1   < last)  call array1_reversequicksortDbyValue_d_pos(a, pos, j+1  , last)
 
  end subroutine     array1_reversequicksortDbyValue_d_pos
+
+!-----------------------------------------------------------------------------------------------------------------------------------
+!
+! Random sorting of arrays using the Fisher-Yates Shuffle algorithm
+!
+!-----------------------------------------------------------------------------------------------------------------------------------
+ subroutine         random_sort_i                                          (array)                                                  !:.:.:
+  integer, dimension(:), intent(inout) :: array
+  integer  :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  n = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end subroutine     random_sort_i
+!-----------------------------------------------------------------------------------------------------------------------------------
+ subroutine         random_sort_d                                          (array)                                                  !:.:.:
+  real(dp), dimension(:), intent(inout) :: array
+  real(dp) :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  n = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end subroutine     random_sort_d
+!-----------------------------------------------------------------------------------------------------------------------------------
+ subroutine         random_sort_c                                          (array)                                                  !:.:.:
+  complex(dp), dimension(:), intent(inout) :: array
+  complex(dp) :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  n = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end subroutine     random_sort_c
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           random_list_n                                          (n1,n2)                  result(array)                   !:.:.:
+  integer, allocatable, dimension(:) :: array
+  integer                            :: temp
+  integer, intent(in)                :: n1
+  integer, intent(in), optional      :: n2
+  !------------------
+  integer  :: nmin, nmax
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+
+  if(present(n2))then
+   nmin = n1
+   nmax = n2
+  else
+   nmin = 1
+   nmax = n1
+  end if
+
+  n = nmax - nmin + 1! Get the length of the array
+  if( n < 1 )then
+   allocate(array(1))
+   array(1) = nan()
+   return
+  else
+   allocate(array(n))
+   array = [(i, i=nmin,nmax)]
+  end if
+
+  ! Iterate through the array, starting from the first element
+  do i = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end function       random_list_n
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           random_sort_fun_i                                      (array_in)               result(array)                   !:.:.:
+  integer, dimension(:), intent(in)  :: array_in
+  integer, dimension(:), allocatable :: array
+  integer  :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  array = array_in
+  n = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end function       random_sort_fun_i
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           random_sort_fun_d                                      (array_in)               result(array)                   !:.:.:
+  real(dp), dimension(:), intent(in)  :: array_in
+  real(dp), dimension(:), allocatable :: array
+  real(dp) :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  array = array_in
+  n     = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i  = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end function       random_sort_fun_d
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           random_sort_fun_c                                      (array_in)               result(array)                   !:.:.:
+  complex(dp), dimension(:), intent(in)  :: array_in
+  complex(dp), dimension(:), allocatable :: array
+  complex(dp) :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  array = array_in
+  n     = size(array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i  = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp     = array(i)
+   array(i) = array(j)
+   array(j) = temp
+  end do
+  
+ end function       random_sort_fun_c
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           random_sort_fun_char                                   (array_in)               result(array)                   !:.:.:
+  character(*), intent(in)  :: array_in
+  character(:), allocatable :: array
+  character(1) :: temp
+  !------------------
+  integer  :: i, j, n
+  real(dp) :: r
+  !------------------
+  array = trim(array_in)
+  n     = len (array)! Get the length of the array
+  
+  ! Iterate through the array, starting from the first element
+  do i  = 1, n - 1
+   
+   call random_number(r)  
+   j = i + int(r * (n - i + 1))  ! Generate a random index 'j' between i and n (inclusive)
+   
+   ! Swap elements at index i and j
+   temp       = array(i:i)
+   array(i:i) = array(j:j)
+   array(j:j) = temp
+  end do
+  
+ end function       random_sort_fun_char
+
+
 
 !...................................................................................................................................
 !.......................... random_number interface: ...............................................................................!:.:.:
