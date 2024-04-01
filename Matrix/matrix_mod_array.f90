@@ -174,6 +174,7 @@ module              matrix_mod_array                                            
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          printna                                                                                                         !:.:.:
   module procedure :: array2_print_nonallocatable,array2_print_nonallocatable_d
+  module procedure :: array1_print_nonallocatable,array1_print_nonallocatable_d
  end interface      printna
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          save                                                                                                            !:.:.:
@@ -1881,6 +1882,7 @@ contains
   integer  :: nmin, nmax
   integer  :: i, j, n
   real(dp) :: r
+  character(1000) :: err
   !------------------
 
   if(present(n2))then
@@ -1893,9 +1895,8 @@ contains
 
   n = nmax - nmin + 1! Get the length of the array
   if( n < 1 )then
-   allocate(array(1))
-   array(1) = nan()
-   return
+   write(err,*) 'random_sort: random_list_n: n<1 nmin= ',nmin,' nmax= ',nmax
+   call matrix_error(err)
   else
    allocate(array(n))
    array = [(i, i=nmin,nmax)]
@@ -2665,6 +2666,40 @@ contains
   DEALLOCATE(Ca)
 
  end subroutine     array2_print_nonallocatable_d
+!-----------------------------------------------------------------------------------------------------------------------------------
+ subroutine         array1_print_nonallocatable                            (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
+  complex(dp)            , intent(in)             :: C(:)                                                                         
+  integer     ,  optional, intent(in)             :: unit
+  character(*),  optional, intent(in)             :: fmt
+  character(*),  optional, intent(in)             :: form
+  integer     ,  optional, intent(in)             :: ips,ipe,jps,jpe
+  character(*),  optional, intent(in)             :: name
+  complex(dp),   allocatable                      :: Ca(:)             
+
+  ALLOCATE(Ca,source=C)
+
+  call array1_print(Ca,unit,fmt,form,name,ips,ipe) 
+
+  DEALLOCATE(Ca)
+
+ end subroutine     array1_print_nonallocatable
+!-----------------------------------------------------------------------------------------------------------------------------------
+ subroutine         array1_print_nonallocatable_d                          (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
+  real   (dp)            , intent(in)             :: C(:)                                                                         
+  integer     ,  optional, intent(in)             :: unit
+  character(*),  optional, intent(in)             :: fmt
+  character(*),  optional, intent(in)             :: form
+  integer     ,  optional, intent(in)             :: ips,ipe,jps,jpe
+  character(*),  optional, intent(in)             :: name
+  real   (dp),   allocatable                      :: Ca(:)             
+
+  ALLOCATE(Ca,source=C)
+
+  call array1_print_d(Ca,unit,fmt,form,name,ips,ipe) 
+
+  DEALLOCATE(Ca)
+
+ end subroutine     array1_print_nonallocatable_d
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array3_save_matrix                                     (C,unit,fmt)                                             !:.:.:
   complex(dp) , dimension(:,:,:), intent(in)      :: C

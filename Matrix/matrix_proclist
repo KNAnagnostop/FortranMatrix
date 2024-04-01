@@ -48,6 +48,8 @@ module              matrix_mod_array                                            
  interface          isSymmetric                                                                                                     !:.:.:
  interface          isAntiSymmetric                                                                                                 !:.:.:
  interface          sort                                                                                                            !:.:.:
+ interface          random_sort                                                                                                     !:.:.:
+ interface          random_sort_array                                                                                               !:.:.:
  interface          print                                                                                                           !:.:.:
  interface          printna                                                                                                         !:.:.:
  interface          save                                                                                                            !:.:.:
@@ -57,7 +59,9 @@ module              matrix_mod_array                                            
  pure function      array2_trace2_connected                                (C,mtype)                result(t)                       !:.:.:
  pure function      array2_trace2_connected_d                              (C,mtype)                result(t)                       !:.:.:
  pure function      array2_trace2                                          (C,mtype)                result(t)                       !:.:.:
+ pure function      array2_trace2_2matrices                                (C1,C2,mtype)            result(t)                       !:.:.:
  pure function      array2_trace2_d                                        (C,mtype)                result(t)                       !:.:.:
+ pure function      array2_trace2_d_2matrices                             (C1,C2,mtype)             result(t)                       !:.:.:
  pure function      array2_traceless_get                                   (C)                      result(B)                       !:.:.:
  pure function      array2_traceless_get_d                                 (C)                      result(B)                       !:.:.:
  pure subroutine    array2_traceless_set                                   (C)                                                      !:.:.:
@@ -102,8 +106,8 @@ module              matrix_mod_array                                            
  subroutine         array2_gauss_set_d                                     (C,sigma)                                                !:.:.:
  subroutine         array2_random_set                                      (C)                                                      !:.:.:
  subroutine         array2_random_set_d                                    (C)                                                      !:.:.:
- function           array1_sort                                            (C,by)                   result(D)                       !:.:.:
- function           array1_sort_d                                          (C,by)                   result(D)                       !:.:.:
+ function           array1_sort                                            (C,P,by)                 result(D)                       !:.:.:
+ function           array1_sort_d                                          (C,P,by)                 result(D)                       !:.:.:
  recursive subroutine array1_quicksortZbyModulus                           (A,first,last)                                           !:.:.:
  recursive subroutine array1_reversequicksortZbyModulus                    (A,first,last)                                           !:.:.:
  subroutine         array1_sortZbyModulus                                  (C)                                                      !:.:.:
@@ -115,6 +119,24 @@ module              matrix_mod_array                                            
  recursive subroutine array1_reversequicksortDbyModulus_d                  (A,first,last)                                           !:.:.:
  recursive subroutine array1_quicksortDbyValue_d                           (A,first,last)                                           !:.:.:
  recursive subroutine array1_reversequicksortDbyValue_d                    (A,first,last)                                           !:.:.:
+ recursive subroutine array1_quicksortZbyModulus_pos                       (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_reversequicksortZbyModulus_pos                (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_quicksortZbyRealPart_pos                      (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_reversequicksortZbyRealPart_pos               (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_quicksortZbyImagPart_pos                      (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_reversequicksortZbyImagPart_pos               (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_quicksortDbyModulus_d_pos                     (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_reversequicksortDbyModulus_d_pos              (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_quicksortDbyValue_d_pos                       (A,pos,first,last)                                       !:.:.:
+ recursive subroutine array1_reversequicksortDbyValue_d_pos                (A,pos,first,last)                                       !:.:.:
+ subroutine         random_sort_i                                          (array)                                                  !:.:.:
+ subroutine         random_sort_d                                          (array)                                                  !:.:.:
+ subroutine         random_sort_c                                          (array)                                                  !:.:.:
+ function           random_list_n                                          (n1,n2)                  result(array)                   !:.:.:
+ function           random_sort_fun_i                                      (array_in)               result(array)                   !:.:.:
+ function           random_sort_fun_d                                      (array_in)               result(array)                   !:.:.:
+ function           random_sort_fun_c                                      (array_in)               result(array)                   !:.:.:
+ function           random_sort_fun_char                                   (array_in)               result(array)                   !:.:.:
 !.......................... random_number interface: ...............................................................................!:.:.:
  subroutine         random_number_complex_scalar                           (z)                                                      !:.:.:
  subroutine         random_number_array3                                   (C)                                                      !:.:.:
@@ -148,6 +170,8 @@ module              matrix_mod_array                                            
  subroutine         array1_print_d                                         (C,unit,fmt,form,name,ips,ipe)                           !:.:.:
  subroutine         array2_print_nonallocatable                            (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
  subroutine         array2_print_nonallocatable_d                          (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
+ subroutine         array1_print_nonallocatable                            (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
+ subroutine         array1_print_nonallocatable_d                          (C,unit,fmt,form,name,ips,ipe,jps,jpe)                   !:.:.:
  subroutine         array3_save_matrix                                     (C,unit,fmt)                                             !:.:.:
  subroutine         array2_save_matrix                                     (C,unit,fmt)                                             !:.:.:
  subroutine         array1_save_matrix                                     (C,unit,fmt)                                             !:.:.:
@@ -268,7 +292,7 @@ module              matrix_mod_matrix                                           
  interface          sqrt                                                                                                            !:.:.:
 !...................................................................................................................................!:.:.:
 !.......................... File: tensorprod_mod.f90   .............................................................................!:.:.:
-module              tensorprod_mod                                                                                                      !:
+module              tensorprod_mod                                                                                                  !:.:.:
 !-----------------------------------------------------------------------------------------------------------------------------------!:.:.:
  public                                 :: tensorprod, vec2row, vec2col, vectorize                                                  !:.:.:
 !-----------------------------------------------------------------------------------------------------------------------------------!:.:.:
@@ -300,7 +324,7 @@ module              array_mod                                                   
  public                                 :: hermitian, hermitian_set, symmetric, symmetric_set, antisymmetric, antisymmetric_set     !:.:.:
  public                                 :: diagonal, diagonalMatrix, trace, trace2, trace2c, traceless, traceless_set               !:.:.:
  public                                 :: identitymatrix, cidentitymatrix, didentitymatrix, paulimatrix                            !:.:.:
- public                                 :: norm, isHermitian, isSymmetric, isAntisymmetric, sort                                    !:.:.:
+ public                                 :: norm, isHermitian, isSymmetric, isAntisymmetric, sort, random_sort, random_sort_array    !:.:.:
  public                                 :: random_number, matrix_random_init                                                        !:.:.:
  public                                 :: print, printna, save, read, isNaN, NaN                                                   !:.:.:
  public                                 :: operator(.mm.)                                                                           !:.:.:
@@ -663,9 +687,9 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   call dgetri(n,CI,n,ipiv,WORK    ,LWORK,info)                                                                                      !:.:.:
 !.......................... Eigenvalues - Eigenvectors .............................................................................!:.:.:
  function           array2_eigenvalues                                     (C,mtype)                result(eigenval)                !:.:.:
- function           array2_eigenvectors                                    (C,mtype)                result(evs)                     !:.:.:
+ function           array2_eigenvectors                                    (C,mtype,sortby)         result(evs)                     !:.:.:
  function           array2_eigenvalues_d                                   (C,mtype)                result(eigenval)                !:.:.:
- function           array2_eigenvectors_d                                  (C,mtype)                result(evs)                     !:.:.:
+ function           array2_eigenvectors_d                                  (C,mtype,sortby)         result(evs)                     !:.:.:
  subroutine         array2_zgeev                                           (C,eigenval,eigenvec,job)                                !:.:.:
    call zgeev(JOBVL,JOBVR,n,A,n,EV,VL,LDVL,VR,LDVL,WORK    ,LWORK,RWORK,info)                                                       !:.:.:
  subroutine         array2_zheev                                           (C,eigenval,eigenvec,job)                                !:.:.:
@@ -689,7 +713,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !...................................................................................................................................!:.:.:
 !...................................................................................................................................!:.:.:
 !.......................... File: tensorprod_mod.f90   .............................................................................!:.:.:
-module              tensorprod_mod                                                                                                      !:
+module              tensorprod_mod                                                                                                  !:.:.:
 !-----------------------------------------------------------------------------------------------------------------------------------!:.:.:
  public                                 :: tensorprod, vec2row, vec2col, vectorize                                                  !:.:.:
 !-----------------------------------------------------------------------------------------------------------------------------------!:.:.:
