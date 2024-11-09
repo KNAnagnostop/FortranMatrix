@@ -1,4 +1,4 @@
-# Fortran Matrix Modules
+# libMatrix: A Convenient Interface to Matrix Operations in Fortran Using (also) Lapack
 
 The modules of the library Matrix provide convenient interfaces to many frequently used linear algebra calculations for real(8) and complex(8) arrays. 
 
