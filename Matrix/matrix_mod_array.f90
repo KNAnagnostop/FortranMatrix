@@ -501,6 +501,7 @@ contains
 
   t = - array2_trace(C) / size(C,1)
 
+  B = C
   do concurrent ( i = 1:size(C,1) )
    B(i,i) = C(i,i) + t
   end do
@@ -515,6 +516,7 @@ contains
 
   t = - array2_trace_d(C) / size(C,1)
 
+  B=C
   do concurrent ( i = 1:size(C,1) )
    B(i,i) = C(i,i) + t
   end do
