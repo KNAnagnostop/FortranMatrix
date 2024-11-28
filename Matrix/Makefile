@@ -10,9 +10,9 @@
 SYSTEM :=$(shell uname)
 SHELL   =  /bin/bash
 #======================================================================
-OBJS    =  matrix_mod_common.o matrix_mod_array.o matrix_mod_matrix.o tensorprod_mod.o array_mod.o 
+OBJS    =  matrix_mod_common.o matrix_mod_array.o matrix_mod_matrix.o tensorprod_mod.o timer_mod.o array_mod.o
 MODS    =  $(subst .o,.mod,$(OBJS))
-SRCS    =  $(subst .o,.f90,$(OBJS)) matrix_mod_matrix_matrix.f90 matrix_mod_matrix_matrixClass.f90 matrix_mod_matrix_dmatrix.f90 matrix_mod_matrix_vector.f90 matrix_mod_matrix_dvector.f90  matrix_mod_array_lapack.f90 tensorprod_mod.f90
+SRCS    =  $(subst .o,.f90,$(OBJS)) matrix_mod_matrix_matrix.f90 matrix_mod_matrix_matrixClass.f90 matrix_mod_matrix_dmatrix.f90 matrix_mod_matrix_vector.f90 matrix_mod_matrix_dvector.f90  matrix_mod_array_lapack.f90 tensorprod_mod.f90 timer_mod.f90
 #----------------------------------------------------------------------
 FC      =  gfortran  # caf,ifort,gfortran
 FFLAGS  =  -Ofast -march=native -mtune=native -ffast-math -funroll-loops
@@ -62,7 +62,6 @@ matrix_benchmark_mymatrix: $(OBJS) matrix_benchmark_mymatrix.o
 # Include files:
 matrix_mod_matrix.o: matrix_mod_matrix.f90 matrix_mod_matrix_matrix.f90 matrix_mod_matrix_matrixClass.f90 matrix_mod_matrix_dmatrix.f90 matrix_mod_matrix_vector.f90 matrix_mod_matrix_dvector.f90
 matrix_mod_array.o : matrix_mod_array.f90  matrix_mod_array_lapack.f90  
-
 # all target, using intel compiler
 i:
 	set +u;$(INTELV); make --no-print-directory FC="$(IFC)" FFLAGS="$(IFFLAGS)" LIBS="$(ILIBS)"
