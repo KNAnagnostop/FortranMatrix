@@ -57,7 +57,7 @@ contains
   call timer_mod_now
 
   write(un_,'(A,I6,A,4G28.16,A)') '#TIMERMOD ', &
-       timer_count,' '//trim(messg_)//' ',timer_cputot,timer_cpudel,timer_wtimetot,timer_wtimedel,trim(timer_date)
+       timer_count,' '//trim(messg_)//' ',timer_cputot,timer_cpudel,timer_wtimetot,timer_wtimedel,' '//trim(timer_date)
 
  end subroutine timer_mod_print
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -106,7 +106,8 @@ contains
        '#TIMERINIT:: ' // trim(timer_date)
   write(un_,'(A)') &
        '#TIMERINIT::   '// &
-       'i         cpu_tot                     cpu_del                     wtime_tot                   wtime_del            Date'
+       'i MESSG      cpu_tot                    cpu_del                     wtime_tot                   '//&
+       'wtime_del              Date'
   
  end subroutine timer_mod_init
 !-----------------------------------------------------------------------------------------------------------------------------------

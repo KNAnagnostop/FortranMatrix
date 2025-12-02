@@ -2,6 +2,9 @@
 !.......................... File: matrix_mod_array.f90 .............................................................................!:.:.:
 !===================================================================================================================================
 !-----------------------------------------------------------------------------------------------------------------------------------
+! Changes:
+! 251202: do concurrent race condition
+!-----------------------------------------------------------------------------------------------------------------------------------
 module              matrix_mod_array                                                                                                !:.:.:
  use matrix_mod_common
  implicit none
@@ -392,13 +395,15 @@ contains
 
   select case (type)
    case('H') ! faster computation, if C is hermitian
-    do concurrent( i = 1:size(C,1), j = 1:size(C,2) )
+!   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
+    do i = 1, size(C,1) ; do j = 1, size(C,2)
      t = t + C(i,j) * CONJG(C(i,j))
-    end do
+    end do              ; end do
    case default
-    do concurrent( i = 1:size(C,1), j = 1:size(C,2) )
+!   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
+    do i = 1, size(C,1) ; do j = 1, size(C,2)
      t = t + C(i,j) * C(j,i)
-    end do
+    end do              ; end do
    end select
 
  end function       array2_trace2
@@ -418,13 +423,15 @@ contains
 
   select case (type)
    case('H') ! faster computation, if C2 is hermitian
-    do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )
+!   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
+    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
      t = t + C1(i,j) * CONJG(C2(i,j))
-    end do
+    end do               ; end do
    case default
-    do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )
+!   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
+    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
      t = t + C1(i,j) * C2(j,i)
-    end do
+    end do               ; end do
    end select
 
   m1 = size(C1,1) ; m2 = size(C2,1)
@@ -450,13 +457,15 @@ contains
 
   select case (type)
    case('S') ! faster computation, if C is hermitian
-    do concurrent( i = 1:size(C,1), j = 1:size(C,2) )
+!   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
+    do i = 1, size(C,1) ; do j = 1, size(C,2)
      t = t + C(i,j) * C(i,j)
-    end do
+    end do              ; end do
    case default
-    do concurrent( i = 1:size(C,1), j = 1:size(C,2) )
+!   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
+    do i = 1, size(C,1) ; do j = 1, size(C,2)
      t = t + C(i,j) * C(j,i)
-    end do
+    end do              ; end do
    end select
 
   end function      array2_trace2_d
@@ -476,13 +485,15 @@ contains
 
   select case (type)
    case('S') ! faster computation, if C2 is hermitian
-    do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )
+!   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
+    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
      t = t + C1(i,j) * C2(i,j)
-    end do
+    end do               ; end do
    case default
-    do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )
+!   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
+    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
      t = t + C1(i,j) * C2(j,i)
-    end do
+    end do               ; end do
    end select
 
   m1 = size(C1,1) ; m2 = size(C2,1)
@@ -502,7 +513,8 @@ contains
   t = - array2_trace(C) / size(C,1)
 
   B = C
-  do concurrent ( i = 1:size(C,1) )
+! do concurrent ( i = 1:size(C,1) )   ! 251202
+  do i = 1, size(C,1) 
    B(i,i) = C(i,i) + t
   end do
 
@@ -517,7 +529,8 @@ contains
   t = - array2_trace_d(C) / size(C,1)
 
   B=C
-  do concurrent ( i = 1:size(C,1) )
+! do concurrent ( i = 1:size(C,1) ) ! 251202
+  do i = 1, size(C,1)
    B(i,i) = C(i,i) + t
   end do
 
@@ -530,7 +543,8 @@ contains
 
   t = - array2_trace(C) / size(C,1)
 
-  do concurrent ( i = 1:size(C,1) )
+! do concurrent ( i = 1:size(C,1) ) ! 251202
+  do i = 1, size(C,1)
    C(i,i) = C(i,i) + t
   end do
 
@@ -543,7 +557,8 @@ contains
 
   t = - array2_trace_d(C) / size(C,1)
 
-  do concurrent ( i = 1:size(C,1) )
+! do concurrent ( i = 1:size(C,1) ) ! 251202
+  do i = 1, size(C,1)
    C(i,i) = C(i,i) + t
   end do
 

@@ -15,7 +15,7 @@ MODS    =  $(subst .o,.mod,$(OBJS))
 SRCS    =  $(subst .o,.f90,$(OBJS)) matrix_mod_matrix_matrix.f90 matrix_mod_matrix_matrixClass.f90 matrix_mod_matrix_dmatrix.f90 matrix_mod_matrix_vector.f90 matrix_mod_matrix_dvector.f90  matrix_mod_array_lapack.f90 tensorprod_mod.f90 timer_mod.f90
 #----------------------------------------------------------------------
 FC      =  gfortran  # caf,ifort,gfortran
-FFLAGS  =  -Ofast -march=native -mtune=native -ffast-math -funroll-loops
+FFLAGS  =  -Ofast -march=native -mtune=native -ffast-math -funroll-loops -fopenmp  -floop-parallelize-all  -pthread
 LIBS    =  -llapack -lblas 
 #----------------------------------------------------------------------
 IFC     =  ifort

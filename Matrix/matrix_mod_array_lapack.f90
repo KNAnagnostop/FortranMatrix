@@ -1074,7 +1074,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
    LWORK = WORKTEST(1) + 10
    allocate(WORK(LWORK))
    call zheev(JOBZ,UPLO,n,A,n,EV,WORK    ,LWORK,RWORK,info)
-   if(info /= 0) write(err,*)                      'array2_zheev: zheev failed (N). INFO= ',info
+   if(info /= 0) write(err,*)                      'array2_zheev: zheev failed (V). INFO= ',info
    if(info /= 0) call matrix_error(err)
    eigenval = EV
    eigenvec = A
@@ -1203,7 +1203,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
    LWORK = WORKTEST(1) + 10
    allocate(WORK(LWORK))
    call dsyev(JOBZ,UPLO,n,A,n,EV,WORK    ,LWORK,info)
-   if(info /= 0) write(err,*)                      'array2_dsyev: dsyev failed (N). INFO= ',info
+   if(info /= 0) write(err,*)                      'array2_dsyev: dsyev failed (V). INFO= ',info
    if(info /= 0) call matrix_error(err)
    eigenval = EV
    eigenvec = A
@@ -1239,11 +1239,13 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 
   isign = 1; det   = ONE
 
-  do concurrent(i  = 1:n)
+! do concurrent(i  = 1:n)   ! 251202
+  do i = 1, n
    det  = det * A(i,i)
   end do
 
-  do concurrent(i  = 1:n)
+! do concurrent(i  = 1:n)   ! 251202
+  do i = 1, n
    if(ipiv(i) /= i) isign = -isign
   end do
   
@@ -1325,11 +1327,13 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 
   isign = 1; det   = ONE
 
-  do concurrent(i  = 1:n)
+! do concurrent(i  = 1:n)  ! 251202
+  do i = 1, n
    det  = det * A(i,i)
   end do
 
-  do concurrent(i  = 1:n)
+! do concurrent(i  = 1:n)  ! 251202
+  do i = 1, n
    if(ipiv(i) /= i) isign = -isign
   end do
   

@@ -1,0 +1,20 @@
+251202:
+=======
+
+do concurrent race conditions: (see lines marked with 251202)
+
+matrix_mod_array.f90
+====================
+array2_trace2 
+array2_trace2_2matrices
+array2_trace2_d
+array2_traceless_get 
+array2_traceless_get_d
+array2_traceless_set 
+array2_traceless_set_d
+
+
+matrix_mod_array_lapack.f90
+====================
+array2_determinant
+array2_determinant_d 
