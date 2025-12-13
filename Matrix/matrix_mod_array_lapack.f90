@@ -1240,9 +1240,11 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   isign = 1; det   = ONE
 
 ! do concurrent(i  = 1:n)   ! 251202
+!$omp parallel do reduction(*:det)
   do i = 1, n
    det  = det * A(i,i)
   end do
+!$omp end parallel do
 
 ! do concurrent(i  = 1:n)   ! 251202
   do i = 1, n
@@ -1328,9 +1330,11 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   isign = 1; det   = ONE
 
 ! do concurrent(i  = 1:n)  ! 251202
+!$omp parallel do reduction(*:det)
   do i = 1, n
    det  = det * A(i,i)
   end do
+!$omp end parallel do
 
 ! do concurrent(i  = 1:n)  ! 251202
   do i = 1, n
@@ -1677,7 +1681,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
        
   enddo !do i=1,n-1,2,Loop ovel all rows in steps of 2
 
-  f=CMPLX(1.0D0,0.0D0)
+  f=CMPLX(1.0_dp,0.0_dp)
   do i=1,n,2
    f=f*M(i+1,i)
   enddo

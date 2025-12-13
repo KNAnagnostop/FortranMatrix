@@ -8,6 +8,7 @@
 module              matrix_mod_array                                                                                                !:.:.:
  use matrix_mod_common
  implicit none
+ integer, parameter :: lp = real64 ! Double precision for Lapack interfaces:
  save
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          operator(.mm.)                                                                                                  !:.:.:
@@ -204,128 +205,146 @@ module              matrix_mod_array                                            
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! BLAS
   pure subroutine   zgemm(transa,transb,m,n,k,alpha,A,lda,B,ldb,beta,C,ldc)
-   complex  (8), intent(in)             :: alpha, beta
+   import                               :: lp
+   complex (lp), intent(in)             :: alpha, beta
    character(1), intent(in)             :: transa,transb
    integer     , intent(in)             :: m, n, k, lda, ldb, ldc
-   complex  (8), intent(in)             :: A(lda,*), B(ldb,*)         ! Careful here, don't use C(:,:), use exactly as in LAPACK
-   complex  (8), intent(inout)          :: C(ldc,*)
+   complex (lp), intent(in)             :: A(lda,*), B(ldb,*)         ! Careful here, don't use C(:,:), use exactly as in LAPACK
+   complex (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   zgemm
   pure subroutine   zhemm(side,uplo,m,n,alpha,A,lda,B,ldb,beta,C,ldc)
-   complex  (8), intent(in)             :: alpha, beta
+   import                               :: lp
+   complex (lp), intent(in)             :: alpha, beta
    character(1), intent(in)             :: side,uplo
    integer     , intent(in)             :: m,n,lda,ldb,ldc
-   complex  (8), intent(in)             :: A(lda,*), B(ldb,*)
-   complex  (8), intent(inout)          :: C(ldc,*)
+   complex (lp), intent(in)             :: A(lda,*), B(ldb,*)
+   complex (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   zhemm
   pure subroutine   zgemv(trans,m,n,alpha,A,lda,X,incx,beta,Y,incy)
-   complex  (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   complex (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: trans
    integer     , intent(in)             :: m,n,lda,incx,incy
-   complex  (8), intent(in)             :: A(lda,*), X(*)
-   complex  (8), intent(inout)          :: Y(*)
+   complex (lp), intent(in)             :: A(lda,*), X(*)
+   complex (lp), intent(inout)          :: Y(*)
   end  subroutine   zgemv
   pure subroutine   zhemv(uplo,n,alpha,A,lda,X,incx,beta,Y,incy)
-   complex  (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   complex (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: uplo
    integer     , intent(in)             :: n,lda,incx,incy
-   complex  (8), intent(in)             :: A(lda,*),X(*)
-   complex  (8), intent(inout)          :: Y(*)
+   complex (lp), intent(in)             :: A(lda,*),X(*)
+   complex (lp), intent(inout)          :: Y(*)
   end  subroutine   zhemv
   pure subroutine   zherk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc)
-   complex  (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   complex (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: uplo,trans
    integer     , intent(in)             :: n,k,lda,ldc
-   complex  (8), intent(in)             :: A(lda,*)
-   complex  (8), intent(inout)          :: C(ldc,*)
+   complex (lp), intent(in)             :: A(lda,*)
+   complex (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   zherk
   pure subroutine   dgemm(transa,transb,m,n,k,alpha,A,lda,B,ldb,beta,C,ldc)
-   real     (8), intent(in)             :: alpha, beta
+   import                               :: lp
+   real    (lp), intent(in)             :: alpha, beta
    character(1), intent(in)             :: transa,transb
    integer     , intent(in)             :: m, n, k, lda, ldb, ldc
-   real     (8), intent(in)             :: A(lda,*), B(ldb,*)
-   real     (8), intent(inout)          :: C(ldc,*)
+   real    (lp), intent(in)             :: A(lda,*), B(ldb,*)
+   real    (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   dgemm
   pure subroutine   dsymm(side,uplo,m,n,alpha,A,lda,B,ldb,beta,C,ldc)
-   real     (8), intent(in)             :: alpha, beta
+   import                               :: lp
+   real    (lp), intent(in)             :: alpha, beta
    character(1), intent(in)             :: side,uplo
    integer     , intent(in)             :: m,n,lda,ldb,ldc
-   real     (8), intent(in)             :: A(lda,*), B(ldb,*)
-   real     (8), intent(inout)          :: C(ldc,*)
+   real    (lp), intent(in)             :: A(lda,*), B(ldb,*)
+   real    (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   dsymm
   pure subroutine   dsymv(uplo,n,alpha,A,lda,X,incx,beta,Y,incy)
-   real     (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   real    (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: uplo
    integer     , intent(in)             :: n,lda,incx,incy
-   real     (8), intent(in)             :: A(lda,*),X(*)
-   real     (8), intent(inout)          :: Y(*)
+   real    (lp), intent(in)             :: A(lda,*),X(*)
+   real    (lp), intent(inout)          :: Y(*)
   end  subroutine   dsymv
   pure subroutine   dgemv(trans,m,n,alpha,A,lda,X,incx,beta,Y,incy)
-   real     (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   real    (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: trans
    integer     , intent(in)             :: m,n,lda,incx,incy
-   real     (8), intent(in)             :: A(lda,*), X(*)
-   real     (8), intent(inout)          :: Y(*)
+   real    (lp), intent(in)             :: A(lda,*), X(*)
+   real    (lp), intent(inout)          :: Y(*)
   end  subroutine   dgemv
   pure subroutine   dsyrk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc)
-   real     (8), intent(in)             :: alpha,beta
+   import                               :: lp
+   real    (lp), intent(in)             :: alpha,beta
    character(1), intent(in)             :: uplo,trans
    integer     , intent(in)             :: n,k,lda,ldc
-   real     (8), intent(in)             :: A(lda,*)
-   real     (8), intent(inout)          :: C(ldc,*)
+   real    (lp), intent(in)             :: A(lda,*)
+   real    (lp), intent(inout)          :: C(ldc,*)
   end  subroutine   dsyrk
 ! end BLAS
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Lapack
   pure subroutine   zgeev(jobvl,jobvr,n,A,lda,W,VL,ldvl,VR,ldvr,WORK,lwork,RWORK,info)
+   import                               :: lp
    character(1), intent(in)             :: jobvl,jobvr
    integer     , intent(in)             :: n,lda,ldvl,ldvr,lwork
-   complex  (8), intent(inout)          :: A(lda,*),W(*),VL(ldvl,*),VR(ldvr,*),WORK(*)
-   real     (8), intent(inout)          :: RWORK(*)
+   complex (lp), intent(inout)          :: A(lda,*),W(*),VL(ldvl,*),VR(ldvr,*),WORK(*)
+   real    (lp), intent(inout)          :: RWORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   zgeev
   pure subroutine   zheev(jobz,uplo,n,A,lda,W,WORK,lwork,RWORK,info)
+   import                               :: lp
    character(1), intent(in)             :: jobz,uplo
    integer     , intent(in)             :: n,lda,lwork
-   complex  (8), intent(inout)          :: A(lda,*),WORK(*)
-   real     (8), intent(inout)          :: W(*),RWORK(*)
+   complex (lp), intent(inout)          :: A(lda,*),WORK(*)
+   real    (lp), intent(inout)          :: W(*),RWORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   zheev
   pure subroutine   zgetrf(m,n,A,lda,IPIV,info)
+   import                               :: lp
    integer     , intent(in)             :: m,n,lda
-   complex  (8), intent(inout)          :: A(lda,*)
+   complex (lp), intent(inout)          :: A(lda,*)
    integer     , intent(inout)          :: IPIV(*)
    integer     , intent(inout)          :: info
   end  subroutine   zgetrf
   pure subroutine   zgetri(n,A,lda,IPIV,WORK,lwork,info)
+   import                               :: lp
    integer     , intent(in)             :: n,lda,lwork
    integer     , intent(in)             :: IPIV(*)
-   complex  (8), intent(inout)          :: A(lda,*)
-   complex  (8), intent(inout)          :: WORK(*)
+   complex (lp), intent(inout)          :: A(lda,*)
+   complex (lp), intent(inout)          :: WORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   zgetri
   pure subroutine   dgeev(jobvl,jobvr,n,A,lda,WR,WI,VL,ldvl,VR,ldvr,WORK,lwork,info)
+   import                               :: lp
    character(1), intent(in)             :: jobvl,jobvr
    integer     , intent(in)             :: n,lda,ldvl,ldvr,lwork
-   real     (8), intent(inout)          :: A(lda,*),WR(*),WI(*),VL(ldvl,*),VR(ldvr,*),WORK(*)
+   real    (lp), intent(inout)          :: A(lda,*),WR(*),WI(*),VL(ldvl,*),VR(ldvr,*),WORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   dgeev
   pure subroutine   dsyev(jobz,uplo,n,A,lda,W,WORK,lwork,info)
+   import                               :: lp
    character(1), intent(in)             :: jobz,uplo
    integer     , intent(in)             :: n,lda,lwork
-   real     (8), intent(inout)          :: A(lda,*),W(*),WORK(*)
+   real    (lp), intent(inout)          :: A(lda,*),W(*),WORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   dsyev
   pure subroutine   dgetrf(m,n,A,lda,IPIV,info)
+   import                               :: lp
    integer     , intent(in)             :: m,n,lda
-   real     (8), intent(inout)          :: A(lda,*)
+   real    (lp), intent(inout)          :: A(lda,*)
    integer     , intent(inout)          :: IPIV(*)
    integer     , intent(inout)          :: info
   end  subroutine   dgetrf
   pure subroutine   dgetri(n,A,lda,IPIV,WORK,lwork,info)
+   import                               :: lp
    integer     , intent(in)             :: n,lda,lwork
    integer     , intent(in)             :: IPIV(*)
-   real     (8), intent(inout)          :: A(lda,*)
-   real     (8), intent(inout)          :: WORK(*)
+   real    (lp), intent(inout)          :: A(lda,*)
+   real    (lp), intent(inout)          :: WORK(*)
    integer     , intent(inout)          :: info
   end  subroutine   dgetri
 ! end Lapack
@@ -395,13 +414,11 @@ contains
 
   select case (type)
    case('H') ! faster computation, if C is hermitian
-!   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-    do i = 1, size(C,1) ; do j = 1, size(C,2)
-     t = t + C(i,j) * CONJG(C(i,j))
-    end do              ; end do
+    t = sum(C * CONJG(C))
    case default
 !   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-    do i = 1, size(C,1) ; do j = 1, size(C,2)
+!$omp simd collapse(2) reduction(+:t)
+    do j = 1, size(C,2) ; do i = 1, size(C,1)
      t = t + C(i,j) * C(j,i)
     end do              ; end do
    end select
@@ -424,12 +441,11 @@ contains
   select case (type)
    case('H') ! faster computation, if C2 is hermitian
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
-     t = t + C1(i,j) * CONJG(C2(i,j))
-    end do               ; end do
+    t = sum(C1 * CONJG(C2))
    case default
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
+!$omp simd collapse(2) reduction(+:t)
+    do j = 1, size(C1,2) ; do i = 1, size(C1,1)
      t = t + C1(i,j) * C2(j,i)
     end do               ; end do
    end select
@@ -458,12 +474,11 @@ contains
   select case (type)
    case('S') ! faster computation, if C is hermitian
 !   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-    do i = 1, size(C,1) ; do j = 1, size(C,2)
-     t = t + C(i,j) * C(i,j)
-    end do              ; end do
+    t = sum(C*C)
    case default
 !   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-    do i = 1, size(C,1) ; do j = 1, size(C,2)
+!$omp simd collapse(2) reduction(+:t)
+    do j = 1, size(C,2) ; do i = 1, size(C,1)
      t = t + C(i,j) * C(j,i)
     end do              ; end do
    end select
@@ -486,12 +501,11 @@ contains
   select case (type)
    case('S') ! faster computation, if C2 is hermitian
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
-     t = t + C1(i,j) * C2(i,j)
-    end do               ; end do
+    t = sum(C1*C2)
    case default
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-    do i = 1, size(C1,1) ; do j = 1, size(C1,2)
+!$omp simd collapse(2) reduction(+:t)
+    do j = 1, size(C1,2) ; do i = 1, size(C1,1)
      t = t + C1(i,j) * C2(j,i)
     end do               ; end do
    end select
@@ -513,8 +527,7 @@ contains
   t = - array2_trace(C) / size(C,1)
 
   B = C
-! do concurrent ( i = 1:size(C,1) )   ! 251202
-  do i = 1, size(C,1) 
+  do concurrent ( i = 1:size(C,1) )  
    B(i,i) = C(i,i) + t
   end do
 
@@ -529,8 +542,7 @@ contains
   t = - array2_trace_d(C) / size(C,1)
 
   B=C
-! do concurrent ( i = 1:size(C,1) ) ! 251202
-  do i = 1, size(C,1)
+  do concurrent ( i = 1:size(C,1) ) 
    B(i,i) = C(i,i) + t
   end do
 
@@ -543,8 +555,7 @@ contains
 
   t = - array2_trace(C) / size(C,1)
 
-! do concurrent ( i = 1:size(C,1) ) ! 251202
-  do i = 1, size(C,1)
+  do concurrent ( i = 1:size(C,1) ) 
    C(i,i) = C(i,i) + t
   end do
 
@@ -557,8 +568,7 @@ contains
 
   t = - array2_trace_d(C) / size(C,1)
 
-! do concurrent ( i = 1:size(C,1) ) ! 251202
-  do i = 1, size(C,1)
+  do concurrent ( i = 1:size(C,1) )
    C(i,i) = C(i,i) + t
   end do
 
@@ -1028,7 +1038,7 @@ contains
   real   (dp)                                     :: s
   
   s = 1.0_dp; if(present(sigma)) s = sigma
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = s * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
   
  end subroutine     array2_gauss_set
@@ -1040,7 +1050,7 @@ contains
   real   (dp)                                     :: s
 
   s = 1.0_dp; if(present(sigma)) s = sigma
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = s * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
 
  end subroutine     array2_gauss_set_d
@@ -2082,7 +2092,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp)                                     :: x,y
 
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   z = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
   
  end subroutine     random_number_complex_scalar_gaussian
@@ -2092,7 +2102,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp)                                     :: x,y
 
-  call random_number(x);call random_number(y);
+  call random_number(x);call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   r = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
   
  end subroutine     random_number_real_scalar_gaussian
@@ -2102,7 +2112,7 @@ contains
   real   (dp),                  intent(in)               :: sigma
   real   (dp), dimension(size(C,1),size(C,2),size(C,3))  :: x,y
   
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
   
  end subroutine     random_number_array3_gaussian
@@ -2112,7 +2122,7 @@ contains
   real   (dp),                  intent(in)              :: sigma
   real   (dp), dimension(size(C,1),size(C,2),size(C,3)) :: x,y
 
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
 
  end subroutine random_number_array3_gaussian_d
@@ -2122,7 +2132,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp), dimension(size(C,1),size(C,2))     :: x,y
   
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
   
  end subroutine     random_number_array2_gaussian
@@ -2132,7 +2142,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp), dimension(size(C,1),size(C,2))     :: x,y
 
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
 
  end subroutine random_number_array2_gaussian_d
@@ -2142,7 +2152,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp), dimension(size(C,1))               :: x,y
   
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
   
  end subroutine     random_number_array1_gaussian
@@ -2152,7 +2162,7 @@ contains
   real   (dp),                intent(in)          :: sigma
   real   (dp), dimension(size(C,1))               :: x,y
 
-  call random_number(x); call random_number(y)
+  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
 
  end subroutine     random_number_array1_gaussian_d
