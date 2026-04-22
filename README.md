@@ -15,7 +15,7 @@ The [matrix module documentation](https://docs.google.com/document/d/1PLhbGWSkTO
 
 ## Downloading
 
-You may download the [source code also from here.](https://physics.ntua.gr/konstant/PUB/Matrix.tgz)
+You may download the most recent version of the [source code from here.](https://physics.ntua.gr/konstant/PUB/Matrix.tgz)
 
 
 ## Hello World Program
