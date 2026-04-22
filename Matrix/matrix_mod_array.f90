@@ -7,6 +7,7 @@
 !-----------------------------------------------------------------------------------------------------------------------------------
 module              matrix_mod_array                                                                                                !:.:.:
  use matrix_mod_common
+ use f95_pfapack                   ! pfapack must be made before the module
  implicit none
  integer, parameter :: lp = real64 ! Double precision for Lapack interfaces:
  save
@@ -60,11 +61,11 @@ module              matrix_mod_array                                            
  end interface      lndet
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          pfaffian                                                                                                        !:.:.:
-  module procedure :: array2_pfaffian
+  module procedure :: array2_pfaffian_pfa
  end interface      pfaffian
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          lnPfaffian                                                                                                      !:.:.:
-  module procedure :: array2_log_pfaffian
+  module procedure :: array2_log_pfaffian_pfa
  end interface      lnPfaffian
 !-----------------------------------------------------------------------------------------------------------------------------------
  interface          inverse                                                                                                         !:.:.:
@@ -367,9 +368,12 @@ contains
   complex  (dp), dimension(:,:),intent(in)        :: C
   character(*) , optional      ,intent(in)        :: mtype
   complex  (dp)                                   :: t
-  complex  (dp), dimension(size(C,1),size(C,2))   :: Cc
+! complex  (dp), dimension(size(C,1),size(C,2))   :: Cc
+  complex  (dp), dimension(:,:), allocatable      :: Cc ! 260104
   character(mtype_len)                            :: type
   integer                                         :: i,j
+
+  allocate(Cc(size(C,1),size(C,2)))
 
   type = 'ZG'
 
@@ -385,10 +389,13 @@ contains
   real     (dp), dimension(:,:),intent(in)        :: C
   character(*) , optional      ,intent(in)        :: mtype
   real     (dp)                                   :: t
-  real     (dp), dimension(size(C,1),size(C,2))   :: Cc
+! real     (dp), dimension(size(C,1),size(C,2))   :: Cc
+  real     (dp), dimension(:,:),allocatable       :: Cc ! 260104
   character(mtype_len)                            :: type
   integer                                         :: i,j
 
+  allocate(Cc(size(C,1),size(C,2)))
+  
   type = 'DG'
 
   if(present(mtype))  type = mtype
@@ -417,7 +424,7 @@ contains
     t = sum(C * CONJG(C))
    case default
 !   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-!$omp simd collapse(2) reduction(+:t)
+!   ! $omp simd collapse(2) reduction(+:t)
     do j = 1, size(C,2) ; do i = 1, size(C,1)
      t = t + C(i,j) * C(j,i)
     end do              ; end do
@@ -444,7 +451,7 @@ contains
     t = sum(C1 * CONJG(C2))
    case default
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-!$omp simd collapse(2) reduction(+:t)
+!   ! $omp simd collapse(2) reduction(+:t)
     do j = 1, size(C1,2) ; do i = 1, size(C1,1)
      t = t + C1(i,j) * C2(j,i)
     end do               ; end do
@@ -477,7 +484,7 @@ contains
     t = sum(C*C)
    case default
 !   do concurrent( i = 1:size(C,1), j = 1:size(C,2) )   ! 251202
-!$omp simd collapse(2) reduction(+:t)
+!   ! $omp simd collapse(2) reduction(+:t)
     do j = 1, size(C,2) ; do i = 1, size(C,1)
      t = t + C(i,j) * C(j,i)
     end do              ; end do
@@ -504,7 +511,7 @@ contains
     t = sum(C1*C2)
    case default
 !   do concurrent( i = 1:size(C1,1), j = 1:size(C1,2) )   ! 251202
-!$omp simd collapse(2) reduction(+:t)
+!   ! $omp simd collapse(2) reduction(+:t)
     do j = 1, size(C1,2) ; do i = 1, size(C1,1)
      t = t + C1(i,j) * C2(j,i)
     end do               ; end do
@@ -520,9 +527,12 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_traceless_get                                   (C)                      result(B)                       !:.:.:
   complex(dp), dimension(:,:),    intent(in)      :: C
-  complex(dp), dimension(size(C,1),size(C,1))     :: B
+! complex(dp), dimension(size(C,1),size(C,1))     :: B
+  complex(dp), dimension(:,:),    allocatable     :: B ! 260104
   complex(dp)                                     :: t
   integer                                         :: i
+
+  allocate(B(size(C,1),size(C,1)))
 
   t = - array2_trace(C) / size(C,1)
 
@@ -535,9 +545,12 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_traceless_get_d                                 (C)                      result(B)                       !:.:.:
   real   (dp), dimension(:,:),    intent(in)      :: C
-  real   (dp), dimension(size(C,1),size(C,1))     :: B
+! real   (dp), dimension(size(C,1),size(C,1))     :: B
+  real   (dp), dimension(:,:),    allocatable     :: B ! 260104
   real   (dp)                                     :: t
   integer                                         :: i
+
+  allocate(B(size(C,1),size(C,1)))
 
   t = - array2_trace_d(C) / size(C,1)
 
@@ -592,8 +605,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_get                                    (C)                      result(d)                       !:.:.:
   complex(dp), dimension(:,:),intent(in)          :: C
-  complex(dp), dimension(size(C,1))               :: d
+! complex(dp), dimension(size(C,1))               :: d
+  complex(dp), dimension(:)  ,allocatable         :: d ! 260104
   integer                                         :: i
+
+  allocate(d(size(C,1)))
 
   do concurrent( i = 1:size(d) )
    d(i) = C(i,i)
@@ -603,8 +619,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_get_d                                  (C)                      result(d)                       !:.:.:
   real   (dp), dimension(:,:),intent(in)          :: C
-  real   (dp), dimension(size(C,1))               :: d
+! real   (dp), dimension(size(C,1))               :: d
+  complex(dp), dimension(:)  ,allocatable         :: d ! 260104
   integer                                         :: i
+
+  allocate(d(size(C,1)))
 
   do concurrent( i = 1:size(d) )
    d(i) = C(i,i)
@@ -614,8 +633,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set                                    (d)                      result(C)                       !:.:.:
   complex(dp), dimension(:), intent(in)           :: d
-  complex(dp), dimension(size(d),size(d))         :: C
+! complex(dp), dimension(size(d),size(d))         :: C
+  complex(dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(size(d),size(d)))
 
   C = ZERO
   do concurrent( i = 1:size(d) )
@@ -626,8 +648,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set_d                                  (d)                      result(C)                       !:.:.:
   real   (dp), dimension(:), intent(in)           :: d
-  real   (dp), dimension(size(d),size(d))         :: C
+! real   (dp), dimension(size(d),size(d))         :: C
+  real   (dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(size(d),size(d)))
 
   C = 0.0_dp
   do concurrent( i = 1:size(d) )
@@ -639,8 +664,11 @@ contains
  pure function      array2_diagonal_set_from_real                          (r,n)                    result(C)                       !:.:.:
   real   (dp), intent(in)                         :: r
   integer    , intent(in)                         :: n
-  complex(dp), dimension(n,n)                     :: C
+! complex(dp), dimension(n,n)                     :: C
+  complex(dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(n,n))
 
   C = ZERO
 
@@ -653,8 +681,11 @@ contains
  pure function      array2_diagonal_set_from_real_d                        (r,n)                    result(C)                       !:.:.:
   real   (dp), intent(in)                         :: r
   integer    , intent(in)                         :: n
-  real   (dp), dimension(n,n)                     :: C
+! real   (dp), dimension(n,n)                     :: C
+  real   (dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(n,n))
 
   C = 0.0_dp
 
@@ -667,8 +698,11 @@ contains
  pure function      array2_diagonal_set_from_complex                       (z,n)                    result(C)                       !:.:.:
   complex(dp), intent(in)                         :: z
   integer    , intent(in)                         :: n
-  complex(dp), dimension(n,n)                     :: C
+! complex(dp), dimension(n,n)                     :: C
+  complex(dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(n,n))
 
   C = ZERO
 
@@ -680,8 +714,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set_from_complex_matrix                (C)                      result(D)                       !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp), dimension(size(C,1),size(C,1))     :: D
+! complex(dp), dimension(size(C,1),size(C,1))     :: D
+  complex(dp), dimension(:,:), allocatable        :: D ! 260104
   integer                                         :: i
+
+  allocate(D(size(C,1),size(C,1)))
 
   D = ZERO
 
@@ -693,8 +730,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set_from_real_matrix_d                 (C)                      result(D)                       !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C
-  real   (dp), dimension(size(C,1),size(C,1))     :: D
+! real   (dp), dimension(size(C,1),size(C,1))     :: D
+  real   (dp), dimension(:,:), allocatable        :: D ! 260104
   integer                                         :: i
+
+  allocate(D(size(C,1),size(C,1)))
 
   D = 0.0_dp
 
@@ -706,8 +746,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set_identity_complex_matrix            (n)                      result(C)                       !:.:.:
   integer    , intent   (in)                      :: n
-  complex(dp), dimension(n,n)                     :: C
+! complex(dp), dimension(n,n)                     :: C
+  complex(dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(n,n))
 
   C = ZERO
 
@@ -720,8 +763,12 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_diagonal_set_identity_real_matrix               (n)                      result(C)                       !:.:.:
   integer    , intent   (in)                      :: n
-  real   (dp), dimension(n,n)                     :: C
+! real   (dp), dimension(n,n)                     :: C
+  real   (dp), dimension(:,:), allocatable        :: C ! 260104
   integer                                         :: i
+
+  allocate(C(n,n))
+
   C = 0.0_dp
 
   do concurrent( i = 1:n )
@@ -887,9 +934,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_hermitian_get                                   (C)                      result(CH)                      !:.:.:
   complex(dp), dimension(:,:),intent(in)          :: C
-  complex(dp), dimension(size(C,2),size(C,1))     :: CH
+! complex(dp), dimension(size(C,2),size(C,1))     :: CH
+  complex(dp), dimension(:,:), allocatable        :: CH   ! 260104
   integer                                         :: i,j
 
+  allocate(CH(size(C,2),size(C,1)))
 
   CH = CONJG(TRANSPOSE(C))
 
@@ -923,7 +972,10 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_symmetric_get                                   (C)                      result(CS)                      !:.:.:
   complex(dp), dimension(:,:),intent(in)          :: C
-  complex(dp), dimension(size(C,2),size(C,1))     :: CS
+! complex(dp), dimension(size(C,2),size(C,1))     :: CS
+  complex(dp), dimension(:,:), allocatable        :: CS ! 260104
+
+  allocate(CS(size(C,2),size(C,1)))
 
   CS = TRANSPOSE(C) 
 
@@ -954,7 +1006,10 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_symmetric_get_d                                 (C)                      result(CS)                      !:.:.:
   real   (dp), dimension(:,:),intent(in)          :: C
-  real   (dp), dimension(size(C,2),size(C,1))     :: CS
+! real   (dp), dimension(size(C,2),size(C,1))     :: CS
+  real   (dp), dimension(:,:), allocatable        :: CS ! 260104
+
+  allocate(CS(size(C,2),size(C,1)))
 
   CS = TRANSPOSE(C) 
 
@@ -990,7 +1045,10 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_antisymmetric_get                               (C)                      result(CS)                      !:.:.:
   complex(dp), dimension(:,:),intent(in)          :: C
-  complex(dp), dimension(size(C,2),size(C,1))     :: CS
+! complex(dp), dimension(size(C,2),size(C,1))     :: CS
+  complex(dp), dimension(:,:), allocatable        :: CS ! 260104
+
+  allocate(CS(size(C,2),size(C,1)))
 
   CS =-TRANSPOSE(C) 
 
@@ -1025,7 +1083,10 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_antisymmetric_get_d                             (C)                      result(CS)                      !:.:.:
   real   (dp), dimension(:,:),intent(in)          :: C
-  real   (dp), dimension(size(C,2),size(C,1))     :: CS
+! real   (dp), dimension(size(C,2),size(C,1))     :: CS
+  real   (dp), dimension(:,:), allocatable        :: CS ! 260104
+
+  allocate(CS(size(C,2),size(C,1)))
 
   CS =-TRANSPOSE(C) 
 
@@ -1034,31 +1095,49 @@ contains
  subroutine         array2_gauss_set                                       (C,sigma)                                                !:.:.:
   complex(dp), dimension(:,:),intent(out)         :: C
   real   (dp), optional      ,intent(in)          :: sigma
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y ! 260104
   real   (dp)                                     :: s
-  
+  integer                                         :: i,j
+
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
+
   s = 1.0_dp; if(present(sigma)) s = sigma
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = s * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  
+  call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
+! C = s * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
+  ! Compute Box-Muller transform element-wise to avoid temporary arrays  260104
+  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j) = s * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * CMPLX(cos(TWOPI*y(i,j)), sin(TWOPI*y(i,j)), kind=dp)! Using (1.0_dp - x(i,j)) handles the x=0 case 
+  end do
+
  end subroutine     array2_gauss_set
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_gauss_set_d                                     (C,sigma)                                                !:.:.:
   real   (dp), dimension(:,:),intent(out)         :: C
   real   (dp), optional      ,intent(in)          :: sigma
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y ! 260104
   real   (dp)                                     :: s
+  integer                                         :: i,j
+
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
 
   s = 1.0_dp; if(present(sigma)) s = sigma
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = s * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  call random_number(x); call random_number(y); ! x = 1.0_dp -x ! avoid the x = 0 case
+! C = s * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j) = s * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * cos(TWOPI*y(i,j))
+  end do
 
  end subroutine     array2_gauss_set_d
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_random_set                                      (C)                                                      !:.:.:
   complex(dp), dimension(:,:)                     :: C
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y ! 260104
   
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
+
   call random_number(x); call random_number(y)
   C = CMPLX(x,y,kind=dp)
 
@@ -1080,10 +1159,13 @@ contains
   complex(dp), dimension(:), intent(in)           :: C
   integer    , dimension(:), optional             :: P
   character(*), optional   , intent(in)           :: by
-  complex(dp), dimension(size(C,1))               :: D
+! complex(dp), dimension(size(C,1))               :: D
+  complex(dp), dimension(:), allocatable          :: D ! 260104
   character(2)                                    :: b
   integer                                         :: i,j
   complex(dp)                                     :: c_i
+
+  allocate(D(size(C,1)))
 
   b = 'MF';                                               ! default value 
   if(present(by)) b = by(1:2)
@@ -1160,10 +1242,13 @@ contains
   real   (dp), dimension(:), intent(in)           :: C
   integer    , dimension(:), optional             :: P
   character(*), optional   , intent(in)           :: by
-  real   (dp), dimension(size(C,1))               :: D
+! real   (dp), dimension(size(C,1))               :: D
+  real   (dp), dimension(:), allocatable          :: D ! 260104
   character(2)                                    :: b
   integer                                         :: i,j
   real   (dp)                                     :: c_i
+
+  allocate(D(size(C,1)))
 
   b = 'RF';                                               ! default value 
   if(present(by)) b = by(1:2)
@@ -2062,8 +2147,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array3                                   (C)                                                      !:.:.:
   complex(dp), dimension(:,:,:)                         :: C
-  real   (dp), dimension(size(C,1),size(C,2),size(C,3)) :: x,y
+! real   (dp), dimension(size(C,1),size(C,2),size(C,3)) :: x,y
+  real   (dp), dimension(:,:,:), allocatable            :: x,y ! 260104
   
+  allocate(x(size(C,1),size(C,2),size(C,3)),y(size(C,1),size(C,2),size(C,3)))
+
   call random_number(x); call random_number(y)
   C = CMPLX(x,y,kind=dp)
 
@@ -2071,8 +2159,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array2                                   (C)                                                      !:.:.:
   complex(dp), dimension(:,:)                     :: C
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y ! 260104
   
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
+
   call random_number(x); call random_number(y)
   C = CMPLX(x,y,kind=dp)
 
@@ -2080,8 +2171,11 @@ contains
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array1                                   (C)                                                      !:.:.:
   complex(dp), dimension(:)                       :: C
-  real   (dp), dimension(size(C,1))               :: x,y
+! real   (dp), dimension(size(C,1))               :: x,y
+  real   (dp), dimension(:), allocatable          :: x,y ! 260104
   
+  allocate(x(size(C,1)),y(size(C,1)))
+
   call random_number(x); call random_number(y)
   C = CMPLX(x,y,kind=dp)
 
@@ -2094,7 +2188,7 @@ contains
 
   call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   z = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  
+
  end subroutine     random_number_complex_scalar_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_real_scalar_gaussian                     (r,sigma)                                                !:.:.:
@@ -2104,67 +2198,107 @@ contains
 
   call random_number(x);call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
   r = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
-  
+
  end subroutine     random_number_real_scalar_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array3_gaussian                          (C,sigma)                                                !:.:.:
   complex(dp), dimension(:,:,:),intent(out)              :: C
   real   (dp),                  intent(in)               :: sigma
-  real   (dp), dimension(size(C,1),size(C,2),size(C,3))  :: x,y
-  
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  
+! real   (dp), dimension(size(C,1),size(C,2),size(C,3))  :: x,y
+  real   (dp), dimension(:,:,:), allocatable             :: x,y ! 260104
+  integer                                                :: i,j,k
+
+  allocate(x(size(C,1),size(C,2),size(C,3)),y(size(C,1),size(C,2),size(C,3)))
+
+  call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
+  do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j,k) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j,k))) * CMPLX(cos(TWOPI*y(i,j,k)), sin(TWOPI*y(i,j,k)), kind=dp)
+  end do
+
  end subroutine     random_number_array3_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array3_gaussian_d                        (C,sigma)                                                !:.:.:
   real   (dp), dimension(:,:,:),intent(out)             :: C
   real   (dp),                  intent(in)              :: sigma
-  real   (dp), dimension(size(C,1),size(C,2),size(C,3)) :: x,y
+! real   (dp), dimension(size(C,1),size(C,2),size(C,3)) :: x,y
+  real   (dp), dimension(:,:,:), allocatable            :: x,y !260104
+  integer                                               :: i,j,k
 
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  allocate(x(size(C,1),size(C,2),size(C,3)),y(size(C,1),size(C,2),size(C,3)))
+
+  call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j,k) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j,k))) * cos(TWOPI*y(i,j,k))
+  end do
 
  end subroutine random_number_array3_gaussian_d
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array2_gaussian                          (C,sigma)                                                !:.:.:
   complex(dp), dimension(:,:),intent(out)         :: C
   real   (dp),                intent(in)          :: sigma
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
-  
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y !260104
+  integer                                         :: i,j
+
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
+
+  call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
+  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * CMPLX(cos(TWOPI*y(i,j)), sin(TWOPI*y(i,j)), kind=dp)
+  end do
+
  end subroutine     random_number_array2_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array2_gaussian_d                        (C,sigma)                                                !:.:.:
   real   (dp), dimension(:,:),intent(out)         :: C
   real   (dp),                intent(in)          :: sigma
-  real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+! real   (dp), dimension(size(C,1),size(C,2))     :: x,y
+  real   (dp), dimension(:,:), allocatable        :: x,y ! 260104
+  integer                                         :: i,j
 
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  allocate(x(size(C,1),size(C,2)),y(size(C,1),size(C,2)))
+
+  call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+   C(i,j) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * cos(TWOPI*y(i,j))
+  end do
 
  end subroutine random_number_array2_gaussian_d
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array1_gaussian                          (C,sigma)                                                !:.:.:
   complex(dp), dimension(:)  ,intent(out)         :: C
   real   (dp),                intent(in)          :: sigma
-  real   (dp), dimension(size(C,1))               :: x,y
-  
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  
+! real   (dp), dimension(size(C,1))               :: x,y
+  real   (dp), dimension(:), allocatable          :: x,y ! 260104
+  integer                                         :: i
+
+  allocate(x(size(C,1)),y(size(C,1)))
+
+  call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
+  do concurrent (i=1:size(C,1)) ! 260104
+   C(i) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i))) * CMPLX(cos(TWOPI*y(i)), sin(TWOPI*y(i)), kind=dp)
+  end do
  end subroutine     random_number_array1_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         random_number_array1_gaussian_d                        (C,sigma)                                                !:.:.:
   real   (dp), dimension(:)  ,intent(out)         :: C
   real   (dp),                intent(in)          :: sigma
-  real   (dp), dimension(size(C,1))               :: x,y
+! real   (dp), dimension(size(C,1))               :: x,y
+  real   (dp), dimension(:), allocatable          :: x,y ! 260140
+  integer                                         :: i
 
-  call random_number(x); call random_number(y); x = 1.0_dp -x ! avoid the x = 0 case
-  C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  allocate(x(size(C,1)),y(size(C,1)))
 
+  call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
+! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
+  do concurrent (i=1:size(C,1)) ! 260104
+   C(i) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i))) * cos(TWOPI*y(i))
+  end do
  end subroutine     random_number_array1_gaussian_d
 
 !...................................................................................................................................
@@ -2175,7 +2309,10 @@ contains
  pure function      array2_matmul_array2                                   (C1,C2)                  result(C3)                      !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C1
   complex(dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
+! complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
+  complex(dp), dimension(:,:), allocatable        :: C3 ! 260104
+
+  allocate(C3(size(C1,1),size(C2,2)))
 
   C3 = lmatmul(C1,C2)
 
@@ -2184,8 +2321,13 @@ contains
  pure function      array2_matmul_array2_d                                 (C1,C2)                  result(C3)                      !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C1
   real   (dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
-  complex(dp), dimension(size(C2,1),size(C2,2))   :: C4
+! complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
+! complex(dp), dimension(size(C2,1),size(C2,2))   :: C4
+  complex(dp), dimension(:,:), allocatable        :: C3 ! 260104
+  complex(dp), dimension(:,:), allocatable        :: C4 ! 260104
+
+  allocate(C3(size(C1,1),size(C2,2)))
+  allocate(C4(size(C2,1),size(C2,2)) )
 
   C4 = C2  ! real -> complex
   C3 = lmatmul(C1,C4)
@@ -2195,8 +2337,13 @@ contains
  pure function      array2_d_matmul_array2                                 (C1,C2)                  result(C3)                      !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C1
   complex(dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
-  complex(dp), dimension(size(C1,1),size(C1,2))   :: C4
+! complex(dp), dimension(size(C1,1),size(C2,2))   :: C3
+! complex(dp), dimension(size(C1,1),size(C1,2))   :: C4
+  complex(dp), dimension(:,:), allocatable        :: C3 ! 260104
+  complex(dp), dimension(:,:), allocatable        :: C4 ! 260104
+
+  allocate(C3(size(C1,1),size(C2,2)))
+  allocate(C4(size(C1,1),size(C1,2)) )
 
   C4 = C1  ! real -> complex
   C3 = lmatmul(C4,C2)
@@ -2206,7 +2353,10 @@ contains
  pure function      array2_d_matmul_array2_d                               (C1,C2)                  result(C3)                      !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C1
   real   (dp), dimension(:,:), intent(in)         :: C2
-  real   (dp), dimension(size(C1,1),size(C2,2))   :: C3
+! real   (dp), dimension(size(C1,1),size(C2,2))   :: C3
+  real   (dp), dimension(:,:), allocatable        :: C3 ! 260104
+
+  allocate(C3(size(C1,1),size(C2,2)))
 
   C3 = lmatmul(C1,C2)
 
@@ -2216,7 +2366,10 @@ contains
  pure function      array2_matmul_array1                                   (C1,v2)                  result(v3)                      !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C1
   complex(dp), dimension(:  ), intent(in)         :: v2
-  complex(dp), dimension(size(C1,1))              :: v3
+! complex(dp), dimension(size(C1,1))              :: v3
+  complex(dp), dimension(:),   allocatable        :: v3 ! 260104
+
+  allocate(v3(size(C1,1)) )
 
   v3 = lmatmul( A = C1 , v = v2 )
 
@@ -2225,7 +2378,10 @@ contains
  pure function      array1_matmul_array2                                   (v1,C2)                  result(v3)                      !:.:.:
   complex(dp), dimension(:  ), intent(in)         :: v1
   complex(dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C2,2))              :: v3
+! complex(dp), dimension(size(C2,2))              :: v3
+  complex(dp), dimension(:)  , allocatable        :: v3 ! 260104
+
+  allocate(v3(size(C2,2)))
 
   v3 = lmatmul( v = v1 , A = C2  , type='T')
 
@@ -2234,7 +2390,10 @@ contains
  pure function      array2_d_matmul_array1_d                               (C1,v2)                  result(v3)                      !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C1
   real   (dp), dimension(:  ), intent(in)         :: v2
-  real   (dp), dimension(size(C1,1))              :: v3
+! real   (dp), dimension(size(C1,1))              :: v3
+  real   (dp), dimension(:)  , allocatable        :: v3 ! 260104
+
+  allocate(v3(size(C1,1)) )
 
   v3 = lmatmul( A = C1 , v = v2 )
 
@@ -2243,7 +2402,10 @@ contains
  pure function      array1_d_matmul_array2_d                               (v1,C2)                  result(v3)                      !:.:.:
   real   (dp), dimension(:  ), intent(in)         :: v1
   real   (dp), dimension(:,:), intent(in)         :: C2
-  real   (dp), dimension(size(C2,2))              :: v3
+! real   (dp), dimension(size(C2,2))              :: v3
+  real   (dp), dimension(:)  , allocatable        :: v3 ! 260104
+
+  allocate(v3(size(C2,2)))
 
   v3 = lmatmul( v = v1 , A = C2  , type='T')
 
@@ -2252,8 +2414,13 @@ contains
  pure function      array2_matmul_array1_d                                 (C1,v2)                  result(v3)                      !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C1
   real   (dp), dimension(:  ), intent(in)         :: v2
-  complex(dp), dimension(size(C1,1))              :: v3
-  complex(dp), dimension(size(v2,1))              :: v4
+! complex(dp), dimension(size(C1,1))              :: v3
+! complex(dp), dimension(size(v2,1))              :: v4
+  complex(dp), dimension(:)  , allocatable        :: v3 ! 260104
+  complex(dp), dimension(:)  , allocatable        :: v4 ! 260104
+
+  allocate(v3(size(C1,1)))
+  allocate(v4(size(v2,1)))
 
   v4 = v2
 
@@ -2264,8 +2431,13 @@ contains
  pure function      array1_d_matmul_array2                                 (v1,C2)                  result(v3)                      !:.:.:
   real   (dp), dimension(:  ), intent(in)         :: v1
   complex(dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C2,2))              :: v3
-  complex(dp), dimension(size(v1,1))              :: v4
+! complex(dp), dimension(size(C2,2))              :: v3
+! complex(dp), dimension(size(v1,1))              :: v4
+  complex(dp), dimension(:)  , allocatable        :: v3 ! 260104
+  complex(dp), dimension(:)  , allocatable        :: v4 ! 260104
+
+  allocate(v3(size(C2,2)))
+  allocate(v4(size(v1,1)))
 
   v4 = v1
 
@@ -2276,8 +2448,13 @@ contains
  pure function      array2_d_matmul_array1                                 (C1,v2)                  result(v3)                      !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C1
   complex(dp), dimension(:  ), intent(in)         :: v2
-  complex(dp), dimension(size(C1,1))              :: v3
-  complex(dp), dimension(size(C1,1),size(C1,2))   :: C4
+! complex(dp), dimension(size(C1,1))              :: v3
+! complex(dp), dimension(size(C1,1),size(C1,2))   :: C4
+  complex(dp), dimension(:)  , allocatable        :: v3 ! 260104
+  complex(dp), dimension(:,:), allocatable        :: C4 ! 260104
+
+  allocate(v3(size(C1,1)))
+  allocate(C4(size(C1,1),size(C1,2)))
 
   C4 = C1
 
@@ -2288,8 +2465,13 @@ contains
  pure function      array1_matmul_array2_d                                 (v1,C2)                  result(v3)                      !:.:.:
   complex(dp), dimension(:  ), intent(in)         :: v1
   real   (dp), dimension(:,:), intent(in)         :: C2
-  complex(dp), dimension(size(C2,2))              :: v3
-  complex(dp), dimension(size(C2,1),size(C2,2))   :: C4
+! complex(dp), dimension(size(C2,2))              :: v3
+! complex(dp), dimension(size(C2,1),size(C2,2))   :: C4
+  complex(dp), dimension(:)  , allocatable        :: v3 ! 260104
+  complex(dp), dimension(:,:), allocatable        :: C4 ! 260104
+
+  allocate(v3(size(C2,2)))
+  allocate(C4(size(C2,1),size(C2,2)))
 
   C4 = C2
 

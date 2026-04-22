@@ -14,12 +14,14 @@
  pure function      array2_matmul_lapack_mm                                (A,B,mtype)              result(C)                       !:.:.:
   complex  (dp), dimension(:,:), intent(in)       :: A,B
   character(*) , optional      , intent(in)       :: mtype
-  complex  (dp), dimension(size(A,1),size(B,2))   :: C
+! complex  (dp), dimension(size(A,1),size(B,2))   :: C
+  complex  (dp), dimension(:,:), allocatable      :: C ! 260104
   integer                                         :: ma,na,mb,nb,mc,nc
   complex  (dp)                                   :: alpha, beta
   character(1)                                    :: opA, opB, side,uplo
   character(mtype_len)                            :: mt
-! logical      , save                             :: have_I_not_warned_256 = .true.
+
+  allocate(C(size(A,1),size(B,2)))
 
   mt = 'ZG'; if(present(mtype)) mt = mtype
 
@@ -27,13 +29,7 @@
   mb = size(B,1) ; nb = size(B,2)
   mc = size(A,1) ; nc = size(B,2)
 
-!  if(have_I_not_warned_256 .and. (MOD(ma,256) == 0 .or. MOD(mb,256) == 0 .or. MOD(mc,256) == 0) )then
-   !From here: https://software.intel.com/en-us/articles/a-simple-example-to-measure-the-performance-of-an-intel-mkl-function
-!   have_I_not_warned_256 = .false.
-!   write(f_mout,'(A)') '# WARNING: array2_matmul_lapack_mm: One of the leading dimensions is a multiple of 256. Performance issues?'
-!  end if
-
-!  if( na /= mb ) call matrix_error('array2_matmul_lapack_mm: na /= mb')
+  C  = ZERO ! 260104
 
   if( na /= mb ) then
    C = NaN()
@@ -72,12 +68,14 @@
  pure function      array2_matmul_lapack_dd                                (A,B,mtype)              result(C)                       !:.:.:
   real     (dp), dimension(:,:), intent(in)       :: A,B
   character(*) , optional      , intent(in)       :: mtype
-  real     (dp), dimension(size(A,1),size(B,2))   :: C
+! real     (dp), dimension(size(A,1),size(B,2))   :: C
+  real     (dp), dimension(:,:), allocatable      :: C ! 260104
   integer                                         :: ma,na,mb,nb,mc,nc
   real   (dp)                                     :: alpha, beta
   character(1)                                    :: opA, opB, side,uplo
   character(mtype_len)                            :: mt
-! logical      , save                             :: have_I_not_warned_256 = .true.
+
+  allocate(C(size(A,1),size(B,2)))
 
   mt = 'DG'; if(present(mtype)) mt = mtype
 
@@ -85,17 +83,13 @@
   mb = size(B,1) ; nb = size(B,2)
   mc = size(A,1) ; nc = size(B,2)
 
+  C  = 0.0_dp ! 260104
+
   !if( na /= mb )  call matrix_error('array2_matmul_lapack_dd: na /= mb')
   if( na /= mb )then
    C = NaN()
    return
   end if
-
-  !if(have_I_not_warned_256 .and. (MOD(ma,256) == 0 .or. MOD(mb,256) == 0 .or. MOD(mc,256) == 0) )then
-  !From here: https://software.intel.com/en-us/articles/a-simple-example-to-measure-the-performance-of-an-intel-mkl-function
-  ! have_I_not_warned_256 = .false.
-  ! write(f_mout,'(A)') '# WARNING: array2_matmul_lapack_dd: One of the leading dimensions is a multiple of 256. Performance issues?'
-  !end if
 
   ! Lapack calculates C = alpha * A . B + beta * C
   !   C    =   A   x   B
@@ -159,7 +153,7 @@
   ! call zherk('U','N',N,K,alpha,A,lda,beta,C,ldc)  N=m, K=n for opA='N' and N=n, K=m for opA='T'
 
   alpha = ONE ; beta = ZERO; uplo = 'U'
-  allocate(C(N,N))
+  allocate(C(N,N)) ; C = ZERO ! 260104
   call zherk(uplo, opA ,N,K,alpha,A,ma,beta,C,N)                                                                                    !:.:.:
 
   !only the upper triangle part of C is filled:
@@ -205,7 +199,7 @@
 
 
   alpha = 1.0_dp ; beta = 0.0_dp; uplo = 'U'
-  allocate(C(N,N))
+  allocate(C(N,N)) ; C  = 0.0_dp ! 260104
   call dsyrk(uplo, opA ,N,K,alpha,A,ma,beta,C,N)                                                                                    !:.:.:
   !only the upper triangle part of C is filled:
   do concurrent(i=1:n, j=1:n, i>j)
@@ -247,7 +241,7 @@
   select case (tp)
    case('N','n')
 
-    allocate(w(ma))
+    allocate(w(ma)); w = ZERO ! 260104
 
    !if( na /= nv) call matrix_error('array2_matmul_lapack_mv: na /= nv (N)'   )
     if( na /= nv)then
@@ -259,7 +253,7 @@
 
    case('T','C','t','c')
 
-    allocate(w(na))
+    allocate(w(na)); w = ZERO ! 260104
 
    !if( ma /= nv) call matrix_error('array2_matmul_lapack_mv: ma /= nv (T,C)' )
     if( ma /= nv)then
@@ -272,7 +266,7 @@
    case('H','h')
 
     uplo = 'U'
-    allocate(w(ma))
+    allocate(w(ma)); w = ZERO ! 260104
 
    !if( ma /= na) call matrix_error('array2_matmul_lapack_mv: ma /= na (H)'   )
    !if( na /= nv) call matrix_error('array2_matmul_lapack_mv: na /= nv (H)'   )
@@ -285,7 +279,7 @@
 
    case default
 
-    allocate(w(ma))
+    allocate(w(ma)); w = ZERO ! 260104
     w = NaN()
     return
    !call               matrix_error('array2_matmul_lapack_mv: wrong type'     )
@@ -323,7 +317,7 @@
   select case (tp)
    case('N','n')
 
-    allocate(w(ma))
+    allocate(w(ma)); w = 0.0_dp ! 260104
 
    !if( na /= nv) call matrix_error('array2_matmul_lapack_dv: na /= nv')
     if( na /= nv)then
@@ -333,7 +327,7 @@
 
    case('T','C','t','c')
 
-    allocate(w(na))
+    allocate(w(na)); w = 0.0_dp ! 260104
 
    !if( ma /= nv) call matrix_error('array2_matmul_lapack_dv: ma /= nv')
     if( ma /= nv)then
@@ -344,7 +338,7 @@
    case default
 
    !call               matrix_error('array2_matmul_lapack_dv: wrong type')
-    allocate(w(ma))
+    allocate(w(ma)); w = 0.0_dp ! 260104
     w = NaN()
     return
 
@@ -369,6 +363,8 @@
   complex  (dp)                                   :: alpha, beta
   character(1)                                    :: opA, opB, side,uplo
   character(mtype_len)                            :: mt
+
+  C  = ZERO ! 260104   - avoid NaN propagation
 
   mt = 'ZG'; if(present(mtype)) mt = mtype
 
@@ -417,7 +413,8 @@
   real   (dp)                                     :: alpha, beta
   character(1)                                    :: opA, opB, side,uplo
   character(mtype_len)                            :: mt
-! logical      , save                             :: have_I_not_warned_256 = .true.
+
+  C  = 0.0_dp ! 260104 - avoid NaN propagation
 
   mt = 'DG'; if(present(mtype)) mt = mtype
 
@@ -469,6 +466,8 @@
   character(1)                                    :: opA, uplo
   integer                                         :: N,K,i,j
 
+  C   = ZERO  ! 260104 - avoid NaN propagation
+
   ma  = size(A,1) ; na = size(A,2)
   mc  = size(C,1) ; nc = size(C,2)
 
@@ -517,6 +516,8 @@
   real     (dp)                                   :: alpha, beta
   character(1)                                    :: opA, uplo
   integer                                         :: N,K,i,j
+
+  C   = 0.0_dp ! 260104 - avoid NaN propagation
 
   ma  = size(A,1) ; na = size(A,2)
   mc  = size(C,1) ; nc = size(C,2)
@@ -576,6 +577,7 @@ pure subroutine     array2_matmul_lapack_mv_sub                            (A,v,
   character(1)                                    :: tp,uplo
   integer                                         :: incx, incy
 
+  w  = ZERO ! 260104  - avoid NaN propagation
   tp = 'N'                                        ! default is w = A.v
   if(present(type)) tp  = type(1:1)
 
@@ -636,6 +638,8 @@ pure subroutine     array2_matmul_lapack_vm_sub                            (v,A,
   character(1)                                    :: tp,uplo
   integer                                         :: incx, incy
 
+  w  = ZERO ! 260104  - avoid NaN propagation
+
   tp = 'T'                                        
 
   ma = size(A,1) ;  na  = size(A,2)
@@ -667,6 +671,8 @@ pure subroutine     array2_matmul_lapack_dv_sub                            (A,v,
   real     (dp)                                   :: alpha, beta
   character(1)                                    :: tp,uplo
   integer                                         :: incx, incy
+
+  w  = 0.0_dp ! 260104  - avoid NaN propagation
 
   tp = 'N'                                        ! default is w = A.v
   if(present(type)) tp  = type(1:1)
@@ -724,6 +730,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   character(1)                                    :: tp,uplo
   integer                                         :: incx, incy
 
+  w  = 0.0_dp ! 260104  - avoid NaN propagation
+
   tp = 'T'                                        
 
   ma = size(A,1) ;  na  = size(A,2)
@@ -751,12 +759,17 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_inverse                                         (C)                      result(CI)                      !:.:.:
   complex  (dp), dimension(:,:), intent(in)       :: C
-  complex  (dp), dimension(size(C,1),size(C,2))   :: CI
+! complex  (dp), dimension(size(C,1),size(C,2))   :: CI
+  complex  (dp), dimension(:,:), allocatable      :: CI   ! 260104
   integer                                         :: n, LWORK, info
-  integer      , dimension(size(C,1))             :: ipiv
-  complex(dp)  , dimension(:)       ,allocatable  :: WORK
+! integer      , dimension(size(C,1))             :: ipiv
+  integer      , dimension(:)  , allocatable      :: ipiv ! 260104
+  complex(dp)  , dimension(:)  , allocatable      :: WORK
   complex(dp)  , dimension(1)                     :: WORKTEST
   character(1024)                                 :: err
+
+  allocate(CI  (size(C,1) ,size(C,2)))
+  allocate(ipiv(size(C,1)) )
 
   if( size(C,1)/=size(C,2)) call matrix_error('array2_inverse: Input matrix not a square matrix. m /= n')
 
@@ -782,17 +795,23 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   if(info /= 0) call matrix_error(err)
   !---------------------------------------------------------
   DEALLOCATE(WORK)
-
+  deallocate(ipiv)
  end function array2_inverse
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_inverse_d                                       (C)                      result(CI)                      !:.:.:
   real     (dp), dimension(:,:), intent(in)       :: C
-  real     (dp), dimension(size(C,1),size(C,2))   :: CI
+! real     (dp), dimension(size(C,1),size(C,2))   :: CI
+  real     (dp), dimension(:,:), allocatable      :: CI ! 260104
   integer                                         :: n, LWORK, info
-  integer      , dimension(size(C,1))             :: ipiv
-  real   (dp)  , dimension(:)       ,allocatable  :: WORK
+! integer      , dimension(size(C,1))             :: ipiv
+  integer      , dimension(:)  , allocatable      :: ipiv ! 260104
+  real   (dp)  , dimension(:)  , allocatable      :: WORK
   real   (dp)  , dimension(1)                     :: WORKTEST
   character(1024)                                 :: err
+
+  allocate(CI  (size(C,1),size(C,2)))
+  allocate(ipiv(size(C,1) ))
+
 
   if( size(C,1)/=size(C,2)) call matrix_error('array2_inverse: Input matrix not a square matrix. m /= n')
 
@@ -818,7 +837,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   if(info /= 0) call matrix_error(err)
   !---------------------------------------------------------
   DEALLOCATE(WORK)
-
+  deallocate(ipiv)
  end function array2_inverse_d
 !-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -964,7 +983,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
-  complex  (dp), dimension(size(C,1),size(C,2))                            :: A
+! complex  (dp), dimension(size(C,1),size(C,2))                            :: A
+  complex  (dp), dimension(:,:)                             , allocatable  :: A ! 260104
   integer                                                                  :: n
   character(1)                                                             :: JOBVL, JOBVR
   integer                                                                  :: info,  LWORK, LDVL,LDVR
@@ -974,6 +994,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)                               , allocatable  :: EV,WORK
   character(1024)                                                          :: err
   
+  allocate(A(size(C,1),size(C,2)))
+
   n =size(C,1)
 
   if(size(C,1) /= size(C,2)   )  call matrix_error('array2_zgeev: Input matrix must be a square matrix:  m /= n')
@@ -1032,7 +1054,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
-  complex  (dp), dimension(size(C,1),size(C,2))                            :: A
+! complex  (dp), dimension(size(C,1),size(C,2))                            :: A
+  complex  (dp), dimension(:,:)                             , allocatable  :: A ! 260104
   integer                                                                  :: n
   integer                                                                  :: info,  LWORK
   complex  (dp)                                                            :: WORKTEST(1)
@@ -1041,6 +1064,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)                               , allocatable  :: WORK
   character(1024)                                                          :: err
   character(1)                                                             :: JOBZ, UPLO
+
+  allocate(A(size(C,1),size(C,2)))
 
   n = size(C,1)
 
@@ -1094,7 +1119,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
-  real     (dp), dimension(size(C,1),size(C,2))                            :: A
+! real     (dp), dimension(size(C,1),size(C,2))                            :: A 
+  real     (dp), dimension(:,:)                             , allocatable  :: A ! 260104
   integer                                                                  :: n,j
   character(1)                                                             :: JOBVL, JOBVR
   integer                                                                  :: info,  LWORK, LDVL,LDVR
@@ -1104,6 +1130,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   real     (dp), dimension(:)                               , allocatable  :: ReEV,ImEV,WORK
   character(1024)                                                          :: err
   
+  allocate(A(size(C,1),size(C,2)))
+
   n =size(C,1)
 
   if(size(C,1) /= size(C,2)   )  call matrix_error('array2_dgeev: Input matrix must be a square matrix:  m /= n')
@@ -1162,7 +1190,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
-  real     (dp), dimension(size(C,1),size(C,2))                            :: A
+! real     (dp), dimension(size(C,1),size(C,2))                            :: A
+  real     (dp), dimension(:,:)                             , allocatable  :: A ! 260104
   integer                                                                  :: n
   integer                                                                  :: info,  LWORK
   real     (dp)                                                            :: WORKTEST(1)
@@ -1170,6 +1199,8 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   real     (dp), dimension(:)                               , allocatable  :: WORK
   character(1024)                                                          :: err
   character(1)                                                             :: JOBZ, UPLO
+
+  allocate(A(size(C,1),size(C,2)))
 
   n = size(C,1)
 
@@ -1220,11 +1251,16 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_determinant                                     (C)  result (det)                                        !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp)                                     :: det
-  complex(dp), dimension(size(C,1),size(C,2))     :: A
+! complex(dp), dimension(size(C,1),size(C,2))     :: A
+  complex(dp), dimension(:,:), allocatable        :: A     ! 260104
   integer                                         :: n
   integer                                         :: info, isign, i
-  integer    , dimension(size(C,1))               :: ipiv
+! integer    , dimension(size(C,1))               :: ipiv
+  integer    , dimension(:)  , allocatable        :: ipiv  ! 260104
   character(1000)                                 :: err
+
+  allocate(A   (size(C,1),size(C,2)))
+  allocate(ipiv(size(C,1)))
 
   if(size(C,1)/=size(C,2)) call matrix_error('array2_determinant: Matrix is not a square matrix')
 
@@ -1240,11 +1276,11 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   isign = 1; det   = ONE
 
 ! do concurrent(i  = 1:n)   ! 251202
-!$omp parallel do reduction(*:det)
+!   ! $omp parallel do reduction(*:det)
   do i = 1, n
    det  = det * A(i,i)
   end do
-!$omp end parallel do
+!   ! $omp end parallel do
 
 ! do concurrent(i  = 1:n)   ! 251202
   do i = 1, n
@@ -1263,13 +1299,18 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_log_determinant                                 (C)                      result(det)                     !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp), dimension(2)                       :: det
-  complex(dp), dimension(size(C,1),size(C,2))     :: A
+! complex(dp), dimension(size(C,1),size(C,2))     :: A
+  complex(dp), dimension(:,:), allocatable        :: A     ! 260104
   integer                                         :: n
   integer                                         :: info, i
-  integer    , dimension(size(C,1))               :: ipiv
+! integer    , dimension(size(C,1))               :: ipiv
+  integer    , dimension(:)  , allocatable        :: ipiv  ! 260104
   complex(dp)                                     :: phase
   real   (dp)                                     :: aAbs,lnDetAbs
   character(1000)                                 :: err
+
+  allocate(A   (size(C,1),size(C,2)))
+  allocate(ipiv(size(C,1)))
 
   if(size(C,1)/=size(C,2)) call matrix_error('array2_log_determinant: Matrix is not a square matrix')
 
@@ -1310,11 +1351,16 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_determinant_d                                   (C)                      result(det)                     !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C
   real   (dp)                                     :: det
-  real   (dp), dimension(size(C,1),size(C,2))     :: A
+! real   (dp), dimension(size(C,1),size(C,2))     :: A
+  real   (dp), dimension(:,:), allocatable        :: A    ! 260104
   integer                                         :: n
   integer                                         :: info, isign, i
-  integer    , dimension(size(C,1))               :: ipiv
+! integer    , dimension(size(C,1))               :: ipiv
+  integer    , dimension(:)  , allocatable        :: ipiv ! 260104
   character(1000)                                 :: err
+
+  allocate(A   (size(C,1),size(C,2)))
+  allocate(ipiv(size(C,1)))
 
   if(size(C,1)/=size(C,2)) call matrix_error('array2_determinant_d: Matrix is not a square matrix')
 
@@ -1330,11 +1376,11 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   isign = 1; det   = ONE
 
 ! do concurrent(i  = 1:n)  ! 251202
-!$omp parallel do reduction(*:det)
+!  ! $omp parallel do reduction(*:det)
   do i = 1, n
    det  = det * A(i,i)
   end do
-!$omp end parallel do
+!  ! $omp end parallel do
 
 ! do concurrent(i  = 1:n)  ! 251202
   do i = 1, n
@@ -1353,12 +1399,17 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_log_determinant_d                               (C)                      result(det)                     !:.:.:
   real   (dp), dimension(:,:), intent(in)         :: C
   real   (dp), dimension(2)                       :: det
-  real   (dp), dimension(size(C,1),size(C,2))     :: A
+! real   (dp), dimension(size(C,1),size(C,2))     :: A
+  real   (dp), dimension(:,:), allocatable        :: A    ! 260104
   integer                                         :: n
   integer                                         :: info, i, isign
-  integer    , dimension(size(C,1))               :: ipiv
+! integer    , dimension(size(C,1))               :: ipiv
+  integer    , dimension(:)  , allocatable        :: ipiv ! 260104
   real   (dp)                                     :: aAbs,lnDetAbs
   character(1000)                                 :: err
+
+  allocate(A(size(C,1),size(C,2)))
+  allocate(ipiv(size(C,1)))
 
   if(size(C,1)/=size(C,2)) call matrix_error('array2_log_determinant_d: Matrix is not a square matrix')
 
@@ -1400,7 +1451,59 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 
  end function       array2_log_determinant_d
 !-----------------------------------------------------------------------------------------------------------------------------------
-! After C code by Simon Catterall,  Phys. Rev. D 68, 014503 (2003) 
+! Use PFAPACK as a more efficient algorithm
+ function                                                                  array2_pfaffian_pfa(C,alg)   result(pfaffian)            !:.:.:
+  complex(dp), dimension(:,:), intent(in)         :: C
+  complex(dp)                                     :: pfaffian
+  character(*), optional                          :: alg
+  character(1)                                    :: alg_
+  complex(dp), allocatable                        :: C_(:,:)
+
+  alg_ = 'P'
+  if(present(alg))then
+   alg_ = alg(1:1)
+  end if
+  
+  select case(alg_)
+  case ('C','c')
+   pfaffian = array2_pfaffian(C)                               ! Catterall algorithm
+  case default
+   allocate(C_,source=C)
+   C_ = C
+   call skpfa(C_,pfaffian)                                     ! PFAPACK   algorithm
+  end select
+
+
+ end function       array2_pfaffian_pfa
+!-----------------------------------------------------------------------------------------------------------------------------------
+ function           array2_log_pfaffian_pfa                                (C,alg)                  result(pfaffian)                !:.:.:
+  complex(dp), dimension(:,:), intent(in)         :: C
+  complex(dp), dimension(2)                       :: pfaffian
+  complex(dp), dimension(2)                       :: lpf
+  character(*), optional                          :: alg
+  character(1)                                    :: alg_
+  complex(dp), allocatable                        :: C_(:,:)
+
+  alg_ = 'P'
+  if(present(alg))then
+   alg_ = alg(1:1)
+  end if
+  
+  select case(alg_)
+  case ('C','c')
+   pfaffian = array2_log_pfaffian(C)                               !Pf(C)= exp(pfaffian(1)) * pfaffian(2)    Catterall algorithm
+  case default
+   allocate(C_,source=C)
+   C_ = C
+   call skpf10(C_,lpf)  ! Pf(C) = lpf(1) * 10**lpf(2)                                                        
+   pfaffian(1) = log(abs(lpf(1))) + lpf(2) * log(10.0_dp)          !Pf(C)= exp(pfaffian(1)) * pfaffian(2)    PFAPACK   algorithm
+   pfaffian(2) = exp(IMU * atan2(aimag(lpf(1)),real(lpf(1))))      !           pfaffian(1) = log(|Pf(C)|)
+  end select                                                       !           pfaffian(2) = exp( i Arg(Pf(C)) )  (phase of pfaffian e^{i θ} )
+
+
+ end function array2_log_pfaffian_pfa
+!-----------------------------------------------------------------------------------------------------------------------------------
+! After C code by Simon Catterall,  Phys. Rev. D 68, 014503 (2003)  https://doi.org/10.1103/PhysRevD.68.014503
 ! The meaning of rows has been interchanged with columns in the comments because of the translation from C->Fortran for more efficient programming
 !
 ! K. Anagnostopoulos, NTUA Feb 2007
@@ -1413,14 +1516,19 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function                                                                  array2_pfaffian(C)       result(pfaffian)                !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp)                                     :: pfaffian
-  complex(dp), dimension(size(C,1),size(C,2))     :: M
+! complex(dp), dimension(size(C,1),size(C,2))     :: M
+  complex(dp), dimension(:,:), allocatable        :: M        ! 260104
   integer                                         :: n
   integer                                         :: i,j,k,jpiv,interchange
   real   (dp)                                     :: pivot
-  complex(dp),dimension(size(C,1))                :: dum,sc
+! complex(dp),dimension(size(C,1))                :: dum,sc
+  complex(dp),dimension(:)   , allocatable        :: dum,sc   ! 260104
   complex(dp)                                     :: scale,f
 
-  
+  allocate(M  (size(C,1),size(C,2)))
+  allocate(dum(size(C,1)))
+  allocate(sc (size(C,1)))
+
   if(size(C,1)/=size(C,2)) call matrix_error('array2_pfaffian: Matrix is not a square matrix')
 
   n = size(C,1)
@@ -1502,15 +1610,20 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_log_pfaffian                                    (C)                      result(pfaffian)                !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp), dimension(2)                       :: pfaffian
-  complex(dp), dimension(size(C,1),size(C,2))     :: M
+! complex(dp), dimension(size(C,1),size(C,2))     :: M
+  complex(dp), dimension(:,:), allocatable        :: M       ! 260104
   integer                                         :: n
   integer                                         :: i,j,k,jpiv,interchange
   real   (dp)                                     :: pivot
-  complex(dp),dimension(size(C,1))                :: dum,sc
+! complex(dp),dimension(size(C,1))                :: dum,sc
+  complex(dp),dimension(:)   , allocatable        :: dum,sc  ! 260104
   complex(dp)                                     :: scale,f
   real   (dp)                                     :: lnPfaffianAbs,AbsM
   complex(dp)                                     :: phase
 
+  allocate(M  (size(C,1),size(C,2)))
+  allocate(dum(size(C,1)))
+  allocate(sc (size(C,1)))
   
   if(size(C,1)/=size(C,2)) call matrix_error('array2_pfaffian: Matrix is not a square matrix')
 
@@ -1611,13 +1724,17 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_pfaffian2                                       (C)                      result(pfaffian)                !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp)                                     :: pfaffian
-  complex(dp), dimension(size(C,1),size(C,2))     :: M
+! complex(dp), dimension(size(C,1),size(C,2))     :: M
+  complex(dp), dimension(:,:), allocatable        :: M    ! 260104
   integer                                         :: n
   integer                                         :: i,j,k,jpiv,interchange
   real   (dp)                                     :: pivot
-  complex(dp),dimension(size(C,1))                :: dum
+! complex(dp),dimension(size(C,1))                :: dum
+  complex(dp), dimension(:)  , allocatable        :: dum  ! 260104
   complex(dp)                                     :: scale,f
 
+  allocate(M  (size(C,1),size(C,2)) )
+  allocate(dum(size(C,1)) )
   
   if(size(C,1)/=size(C,2)) call matrix_error('array2_pfaffian: Matrix is not a square matrix')
 
@@ -1696,15 +1813,19 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  function           array2_log_pfaffian2                                   (C)                      result(pfaffian)                !:.:.:
   complex(dp), dimension(:,:), intent(in)         :: C
   complex(dp), dimension(2)                       :: pfaffian
-  complex(dp), dimension(size(C,1),size(C,2))     :: M
+! complex(dp), dimension(size(C,1),size(C,2))     :: M
+  complex(dp), dimension(:,:), allocatable        :: M    ! 260104
   integer                                         :: n
   integer                                         :: i,j,k,jpiv,interchange
   real   (dp)                                     :: pivot
-  complex(dp),dimension(size(C,1))                :: dum
+! complex(dp),dimension(size(C,1))                :: dum
+  complex(dp), dimension(:)  , allocatable        :: dum  ! 260104
   complex(dp)                                     :: scale,f
   real   (dp)                                     :: lnPfaffianAbs,AbsM
   complex(dp)                                     :: phase
 
+  allocate(M  (size(C,1),size(C,2)))
+  allocate(dum(size(C,1)))
   
   if(size(C,1)/=size(C,2)) call matrix_error('array2_pfaffian: Matrix is not a square matrix')
 
