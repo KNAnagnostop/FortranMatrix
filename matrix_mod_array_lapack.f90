@@ -12,14 +12,14 @@
 !
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_mm                                (A,B,mtype)              result(C)                       !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A,B
-  character(*) , optional      , intent(in)       :: mtype
-! complex  (dp), dimension(size(A,1),size(B,2))   :: C
-  complex  (dp), dimension(:,:), allocatable      :: C ! 260104
-  integer                                         :: ma,na,mb,nb,mc,nc
-  complex  (dp)                                   :: alpha, beta
-  character(1)                                    :: opA, opB, side,uplo
-  character(mtype_len)                            :: mt
+  complex  (dp), dimension(:,:), contiguous, intent(in)  :: A,B
+  character(*) , optional                  , intent(in)  :: mtype
+! complex  (dp), dimension(size(A,1),size(B,2))          :: C
+  complex  (dp), dimension(:,:), allocatable             :: C ! 260104
+  integer                                                :: ma,na,mb,nb,mc,nc
+  complex  (dp)                                          :: alpha, beta
+  character(1)                                           :: opA, opB, side,uplo
+  character(mtype_len)                                   :: mt
 
   allocate(C(size(A,1),size(B,2)))
 
@@ -66,14 +66,14 @@
  end function       array2_matmul_lapack_mm
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_dd                                (A,B,mtype)              result(C)                       !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A,B
-  character(*) , optional      , intent(in)       :: mtype
-! real     (dp), dimension(size(A,1),size(B,2))   :: C
-  real     (dp), dimension(:,:), allocatable      :: C ! 260104
-  integer                                         :: ma,na,mb,nb,mc,nc
-  real   (dp)                                     :: alpha, beta
-  character(1)                                    :: opA, opB, side,uplo
-  character(mtype_len)                            :: mt
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A,B
+  character(*) , optional                  , intent(in)       :: mtype
+! real     (dp), dimension(size(A,1),size(B,2))               :: C
+  real     (dp), dimension(:,:), allocatable                  :: C ! 260104
+  integer                                                     :: ma,na,mb,nb,mc,nc
+  real   (dp)                                                 :: alpha, beta
+  character(1)                                                :: opA, opB, side,uplo
+  character(mtype_len)                                        :: mt
 
   allocate(C(size(A,1),size(B,2)))
 
@@ -123,13 +123,13 @@
 ! A . A^\dagger = array2_matmul_lapack_m(A)    ;   A^\dagger . A = array2_matmul_lapack_m(A,side='H')
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_m                                 (A,side)                 result(C)                       !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A
-  character(*) , optional      , intent(in)       :: side
-  complex  (dp), dimension(:,:), allocatable      :: C
-  integer                                         :: ma,na, mc,nc
-  complex(dp)                                     :: alpha, beta
-  character(1)                                    :: opA, uplo
-  integer                                         :: N,K,i,j
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A
+  character(*) , optional                  , intent(in)       :: side
+  complex  (dp), dimension(:,:), allocatable                  :: C
+  integer                                                     :: ma,na, mc,nc
+  complex(dp)                                                 :: alpha, beta
+  character(1)                                                :: opA, uplo
+  integer                                                     :: N,K,i,j
 
   ma  = size(A,1) ; na = size(A,2)
 
@@ -167,13 +167,13 @@
 ! A . A^T = array2_matmul_lapack_m(A)    ;   A^T . A = array2_matmul_lapack_m(A,side='S')
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_d                                 (A,side)                 result(C)                       !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A
-  character(*) , optional      , intent(in)       :: side
-  real     (dp), dimension(:,:), allocatable      :: C
-  integer                                         :: ma,na, mc,nc
-  real   (dp)                                     :: alpha, beta
-  character(1)                                    :: opA, uplo
-  integer                                         :: N,K,i,j
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A
+  character(*) , optional                  , intent(in)       :: side
+  real     (dp), dimension(:,:), allocatable                  :: C
+  integer                                                     :: ma,na, mc,nc
+  real   (dp)                                                 :: alpha, beta
+  character(1)                                                :: opA, uplo
+  integer                                                     :: N,K,i,j
 
   ma  = size(A,1) ; na = size(A,2)
 
@@ -220,14 +220,14 @@
 !type='H'    w = A . v           w_i = A_ij  v_j    faster, when A = A^\dagger (no check performed)
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_mv                                (A,v,type)               result(w)                       !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A
-  complex  (dp), dimension(:)  , intent(in)       :: v
-  character(*) , optional      , intent(in)       :: type
-  complex  (dp), dimension(:)  , allocatable      :: w
-  integer                                         :: ma,na,nv
-  complex  (dp)                                   :: alpha, beta
-  character(1)                                    :: tp,uplo
-  integer                                         :: incx, incy
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A
+  complex  (dp), dimension(:)  , contiguous, intent(in)       :: v
+  character(*) , optional                  , intent(in)       :: type
+  complex  (dp), dimension(:)  , allocatable                  :: w
+  integer                                                     :: ma,na,nv
+  complex  (dp)                                               :: alpha, beta
+  character(1)                                                :: tp,uplo
+  integer                                                     :: incx, incy
 
   tp = 'N'                                        ! default is w = A.v
   if(present(type)) tp  = type(1:1)
@@ -295,14 +295,14 @@
 !type='S'    w = v . A^T         w_i = v_j   A_ji
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure function      array2_matmul_lapack_dv                                (A,v,type)               result(w)                       !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A
-  real     (dp), dimension(:)  , intent(in)       :: v
-  character(*) , optional      , intent(in)       :: type
-  real     (dp), dimension(:)  , allocatable      :: w
-  integer                                         :: ma,na,nv
-  real     (dp)                                   :: alpha, beta
-  character(1)                                    :: tp
-  integer                                         :: incx, incy
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A
+  real     (dp), dimension(:)  , contiguous, intent(in)       :: v
+  character(*) , optional      , intent(in)                   :: type
+  real     (dp), dimension(:)  , allocatable                  :: w
+  integer                                                     :: ma,na,nv
+  real     (dp)                                               :: alpha, beta
+  character(1)                                                :: tp
+  integer                                                     :: incx, incy
 
   tp = 'N'                                        ! default is w = A.v
   if(present(type)) tp  = type(1:1)
@@ -356,13 +356,13 @@
 !
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure subroutine    array2_matmul_lapack_mm_sub                            (A,B,C,mtype)                                            !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A,B
-  complex  (dp), dimension(:,:), intent(inout)    :: C
-  character(*) , optional      , intent(in)       :: mtype
-  integer                                         :: ma,na,mb,nb,mc,nc
-  complex  (dp)                                   :: alpha, beta
-  character(1)                                    :: opA, opB, side,uplo
-  character(mtype_len)                            :: mt
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A,B
+  complex  (dp), dimension(:,:), contiguous, intent(inout)    :: C
+  character(*) , optional                  , intent(in)       :: mtype
+  integer                                                     :: ma,na,mb,nb,mc,nc
+  complex  (dp)                                               :: alpha, beta
+  character(1)                                                :: opA, opB, side,uplo
+  character(mtype_len)                                        :: mt
 
   C  = ZERO ! 260104   - avoid NaN propagation
 
@@ -406,13 +406,13 @@
  end  subroutine    array2_matmul_lapack_mm_sub
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure subroutine    array2_matmul_lapack_dd_sub                            (A,B,C,mtype)                                            !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A,B
-  real     (dp), dimension(:,:), intent(inout)    :: C
-  character(*) , optional      , intent(in)       :: mtype
-  integer                                         :: ma,na,mb,nb,mc,nc
-  real   (dp)                                     :: alpha, beta
-  character(1)                                    :: opA, opB, side,uplo
-  character(mtype_len)                            :: mt
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A,B
+  real     (dp), dimension(:,:), contiguous, intent(inout)    :: C
+  character(*) , optional                  , intent(in)       :: mtype
+  integer                                                     :: ma,na,mb,nb,mc,nc
+  real   (dp)                                                 :: alpha, beta
+  character(1)                                                :: opA, opB, side,uplo
+  character(mtype_len)                                        :: mt
 
   C  = 0.0_dp ! 260104 - avoid NaN propagation
 
@@ -458,13 +458,13 @@
 ! A . A^\dagger = array2_matmul_lapack_m(A)    ;   A^\dagger . A = array2_matmul_lapack_m(A,side='H')
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure subroutine    array2_matmul_lapack_m_sub                             (A,C,side)                                               !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A
-  complex  (dp), dimension(:,:), intent(inout)    :: C
-  character(*) , optional      , intent(in)       :: side
-  integer                                         :: ma,na, mc,nc
-  complex(dp)                                     :: alpha, beta
-  character(1)                                    :: opA, uplo
-  integer                                         :: N,K,i,j
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A
+  complex  (dp), dimension(:,:), contiguous, intent(inout)    :: C
+  character(*) , optional                  , intent(in)       :: side
+  integer                                                     :: ma,na, mc,nc
+  complex(dp)                                                 :: alpha, beta
+  character(1)                                                :: opA, uplo
+  integer                                                     :: N,K,i,j
 
   C   = ZERO  ! 260104 - avoid NaN propagation
 
@@ -509,13 +509,13 @@
 ! A . A^T = array2_matmul_lapack_m(A)    ;   A^T . A = array2_matmul_lapack_m(A,side='S')
 !-----------------------------------------------------------------------------------------------------------------------------------
  pure subroutine    array2_matmul_lapack_d_sub                             (A,C,side)                                               !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A
-  real     (dp), dimension(:,:), intent(inout)    :: C
-  character(*) , optional      , intent(in)       :: side
-  integer                                         :: ma,na, mc,nc
-  real     (dp)                                   :: alpha, beta
-  character(1)                                    :: opA, uplo
-  integer                                         :: N,K,i,j
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A
+  real     (dp), dimension(:,:), contiguous, intent(inout)    :: C
+  character(*) , optional                  , intent(in)       :: side
+  integer                                                     :: ma,na, mc,nc
+  real     (dp)                                               :: alpha, beta
+  character(1)                                                :: opA, uplo
+  integer                                                     :: N,K,i,j
 
   C   = 0.0_dp ! 260104 - avoid NaN propagation
 
@@ -568,14 +568,14 @@
 !type='H'    w = A . v           w_i = A_ij  v_j    faster, when A = A^\dagger (no check performed)
 !-----------------------------------------------------------------------------------------------------------------------------------
 pure subroutine     array2_matmul_lapack_mv_sub                            (A,v,w,type)                                             !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A
-  complex  (dp), dimension(:)  , intent(in)       :: v
-  complex  (dp), dimension(:)  , intent(inout)    :: w
-  character(*) , optional      , intent(in)       :: type
-  integer                                         :: ma,na,nv,nw
-  complex  (dp)                                   :: alpha, beta
-  character(1)                                    :: tp,uplo
-  integer                                         :: incx, incy
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A
+  complex  (dp), dimension(:)  , contiguous, intent(in)       :: v
+  complex  (dp), dimension(:)  , contiguous, intent(inout)    :: w
+  character(*) , optional                  , intent(in)       :: type
+  integer                                                     :: ma,na,nv,nw
+  complex  (dp)                                               :: alpha, beta
+  character(1)                                                :: tp,uplo
+  integer                                                     :: incx, incy
 
   w  = ZERO ! 260104  - avoid NaN propagation
   tp = 'N'                                        ! default is w = A.v
@@ -630,13 +630,13 @@ pure subroutine     array2_matmul_lapack_mv_sub                            (A,v,
 !type='T'    w = v . A^T         w_i = v_j   A_ji  
 !-----------------------------------------------------------------------------------------------------------------------------------
 pure subroutine     array2_matmul_lapack_vm_sub                            (v,A,w)                                                  !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: A
-  complex  (dp), dimension(:)  , intent(in)       :: v
-  complex  (dp), dimension(:)  , intent(inout)    :: w
-  integer                                         :: ma,na,nv,nw
-  complex  (dp)                                   :: alpha, beta
-  character(1)                                    :: tp,uplo
-  integer                                         :: incx, incy
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: A
+  complex  (dp), dimension(:)  , contiguous, intent(in)       :: v
+  complex  (dp), dimension(:)  , contiguous, intent(inout)    :: w
+  integer                                                     :: ma,na,nv,nw
+  complex  (dp)                                               :: alpha, beta
+  character(1)                                                :: tp,uplo
+  integer                                                     :: incx, incy
 
   w  = ZERO ! 260104  - avoid NaN propagation
 
@@ -663,14 +663,14 @@ pure subroutine     array2_matmul_lapack_vm_sub                            (v,A,
 !type='S'    w = v . A^T         w_i = v_j   A_ji
 !-----------------------------------------------------------------------------------------------------------------------------------
 pure subroutine     array2_matmul_lapack_dv_sub                            (A,v,w,type)                                             !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A
-  real     (dp), dimension(:)  , intent(in)       :: v
-  real     (dp), dimension(:)  , intent(inout)    :: w
-  character(*) , optional      , intent(in)       :: type
-  integer                                         :: ma,na,nv,nw
-  real     (dp)                                   :: alpha, beta
-  character(1)                                    :: tp,uplo
-  integer                                         :: incx, incy
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A
+  real     (dp), dimension(:)  , contiguous, intent(in)       :: v
+  real     (dp), dimension(:)  , contiguous, intent(inout)    :: w
+  character(*) , optional                  , intent(in)       :: type
+  integer                                                     :: ma,na,nv,nw
+  real     (dp)                                               :: alpha, beta
+  character(1)                                                :: tp,uplo
+  integer                                                     :: incx, incy
 
   w  = 0.0_dp ! 260104  - avoid NaN propagation
 
@@ -722,13 +722,13 @@ pure subroutine     array2_matmul_lapack_dv_sub                            (A,v,
 !type='T'    w = v . A^T         w_i = v_j   A_ji  
 !-----------------------------------------------------------------------------------------------------------------------------------
 pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,w)                                                  !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: A
-  real     (dp), dimension(:)  , intent(in)       :: v
-  real     (dp), dimension(:)  , intent(inout)    :: w
-  integer                                         :: ma,na,nv,nw
-  real     (dp)                                   :: alpha, beta
-  character(1)                                    :: tp,uplo
-  integer                                         :: incx, incy
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: A
+  real     (dp), dimension(:)  , contiguous, intent(in)       :: v
+  real     (dp), dimension(:)  , contiguous, intent(inout)    :: w
+  integer                                                     :: ma,na,nv,nw
+  real     (dp)                                               :: alpha, beta
+  character(1)                                                :: tp,uplo
+  integer                                                     :: incx, incy
 
   w  = 0.0_dp ! 260104  - avoid NaN propagation
 
@@ -758,15 +758,15 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_inverse                                         (C)                      result(CI)                      !:.:.:
-  complex  (dp), dimension(:,:), intent(in)       :: C
-! complex  (dp), dimension(size(C,1),size(C,2))   :: CI
-  complex  (dp), dimension(:,:), allocatable      :: CI   ! 260104
-  integer                                         :: n, LWORK, info
-! integer      , dimension(size(C,1))             :: ipiv
-  integer      , dimension(:)  , allocatable      :: ipiv ! 260104
-  complex(dp)  , dimension(:)  , allocatable      :: WORK
-  complex(dp)  , dimension(1)                     :: WORKTEST
-  character(1024)                                 :: err
+  complex  (dp), dimension(:,:), contiguous, intent(in)       :: C
+! complex  (dp), dimension(size(C,1),size(C,2))               :: CI
+  complex  (dp), dimension(:,:), allocatable                  :: CI   ! 260104
+  integer                                                     :: n, LWORK, info
+! integer      , dimension(size(C,1))                         :: ipiv
+  integer      , dimension(:)  , allocatable                  :: ipiv ! 260104
+  complex(dp)  , dimension(:)  , allocatable                  :: WORK
+  complex(dp)  , dimension(1)                                 :: WORKTEST
+  character(1024)                                             :: err
 
   allocate(CI  (size(C,1) ,size(C,2)))
   allocate(ipiv(size(C,1)) )
@@ -799,15 +799,15 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function array2_inverse
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_inverse_d                                       (C)                      result(CI)                      !:.:.:
-  real     (dp), dimension(:,:), intent(in)       :: C
-! real     (dp), dimension(size(C,1),size(C,2))   :: CI
-  real     (dp), dimension(:,:), allocatable      :: CI ! 260104
-  integer                                         :: n, LWORK, info
-! integer      , dimension(size(C,1))             :: ipiv
-  integer      , dimension(:)  , allocatable      :: ipiv ! 260104
-  real   (dp)  , dimension(:)  , allocatable      :: WORK
-  real   (dp)  , dimension(1)                     :: WORKTEST
-  character(1024)                                 :: err
+  real     (dp), dimension(:,:), contiguous, intent(in)       :: C
+! real     (dp), dimension(size(C,1),size(C,2))               :: CI
+  real     (dp), dimension(:,:), allocatable                  :: CI ! 260104
+  integer                                                     :: n, LWORK, info
+! integer      , dimension(size(C,1))                         :: ipiv
+  integer      , dimension(:)  , allocatable                  :: ipiv ! 260104
+  real   (dp)  , dimension(:)  , allocatable                  :: WORK
+  real   (dp)  , dimension(1)                                 :: WORKTEST
+  character(1024)                                             :: err
 
   allocate(CI  (size(C,1),size(C,2)))
   allocate(ipiv(size(C,1) ))
@@ -849,7 +849,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 ! In order to compare, you have to sort them in e.g. real part order and then the difference is pure numerical error. 
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_eigenvalues                                     (C,mtype)                result(eigenval)                !:.:.:
-  complex  (dp), dimension(:,:)             , intent(in)                   :: C
+  complex  (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   character(*)                              , optional                     :: mtype
   complex  (dp), dimension(:)               , allocatable                  :: eigenval
   complex  (dp), dimension(:,:)             , allocatable                  :: eigenvec
@@ -868,7 +868,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_eigenvalues
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_eigenvectors                                    (C,mtype,sortby)         result(evs)                     !:.:.:
-  complex  (dp), dimension(:,:)             , intent(in)                   :: C
+  complex  (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   character(*)                              , optional                     :: mtype, sortby
   integer      , dimension(:)               , allocatable                  :: pos
   complex  (dp), dimension(:)               , allocatable                  :: eigenval
@@ -909,7 +909,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_eigenvectors
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_eigenvalues_d                                   (C,mtype)                result(eigenval)                !:.:.:
-  real     (dp), dimension(:,:)             , intent(in)                   :: C
+  real     (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   character(*)                              , optional                     :: mtype
   complex  (dp), dimension(:)               , allocatable                  :: eigenval
   complex  (dp), dimension(:,:)             , allocatable                  :: eigenvec
@@ -928,7 +928,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_eigenvalues_d
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_eigenvectors_d                                  (C,mtype,sortby)         result(evs)                     !:.:.:
-  real     (dp), dimension(:,:)             , intent(in)                   :: C
+  real     (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   character(*)                              , optional                     :: mtype, sortby
   integer      , dimension(:)               , allocatable                  :: pos
   complex  (dp), dimension(:)               , allocatable                  :: eigenval
@@ -979,7 +979,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 ! The upper:lower bounds for eiganvalues/eigenvectors is changed to 1:n, otherwise the result is not correct.
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_zgeev                                           (C,eigenval,eigenvec,job)                                !:.:.:
-  complex  (dp), dimension(:,:)             , intent(in)                   :: C
+  complex  (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
@@ -1050,7 +1050,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !The ordering of the (real) eigenvalues is by ascending order (not true from zgeev, so don't make any attempt to compare without sorting)
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_zheev                                           (C,eigenval,eigenvec,job)                                !:.:.:
-  complex  (dp), dimension(:,:)             , intent(in)                   :: C
+  complex  (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
@@ -1115,7 +1115,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !-----------------------------------------------------------------------------------------------------------------------------------
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_dgeev                                           (C,eigenval,eigenvec,job)                                !:.:.:
-  real     (dp), dimension(:,:)             , intent(in)                   :: C
+  real     (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
@@ -1186,7 +1186,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end subroutine     array2_dgeev
 !-----------------------------------------------------------------------------------------------------------------------------------
  subroutine         array2_dsyev                                           (C,eigenval,eigenvec,job)                                !:.:.:
-  real     (dp), dimension(:,:)             , intent(in)                   :: C
+  real     (dp), dimension(:,:)             , contiguous, intent(in)       :: C
   complex  (dp), dimension(:)               , intent(in out), allocatable  :: eigenval                                              ! if lbound is not one, the result was not correct. Make local allocation
   complex  (dp), dimension(:,:)             , intent(in out), allocatable  :: eigenvec
   character(*)                              , intent(in)                   :: job
@@ -1249,15 +1249,15 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end subroutine     array2_dsyev
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_determinant                                     (C)  result (det)                                        !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp)                                     :: det
-! complex(dp), dimension(size(C,1),size(C,2))     :: A
-  complex(dp), dimension(:,:), allocatable        :: A     ! 260104
-  integer                                         :: n
-  integer                                         :: info, isign, i
-! integer    , dimension(size(C,1))               :: ipiv
-  integer    , dimension(:)  , allocatable        :: ipiv  ! 260104
-  character(1000)                                 :: err
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp)                                            :: det
+! complex(dp), dimension(size(C,1),size(C,2))            :: A
+  complex(dp), dimension(:,:), allocatable               :: A     ! 260104
+  integer                                                :: n
+  integer                                                :: info, isign, i
+! integer    , dimension(size(C,1))                      :: ipiv
+  integer    , dimension(:)  , allocatable               :: ipiv  ! 260104
+  character(1000)                                        :: err
 
   allocate(A   (size(C,1),size(C,2)))
   allocate(ipiv(size(C,1)))
@@ -1297,17 +1297,17 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 ! Det(C) = exp(det(1))  * det(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_log_determinant                                 (C)                      result(det)                     !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp), dimension(2)                       :: det
-! complex(dp), dimension(size(C,1),size(C,2))     :: A
-  complex(dp), dimension(:,:), allocatable        :: A     ! 260104
-  integer                                         :: n
-  integer                                         :: info, i
-! integer    , dimension(size(C,1))               :: ipiv
-  integer    , dimension(:)  , allocatable        :: ipiv  ! 260104
-  complex(dp)                                     :: phase
-  real   (dp)                                     :: aAbs,lnDetAbs
-  character(1000)                                 :: err
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp), dimension(2)                              :: det
+! complex(dp), dimension(size(C,1),size(C,2))            :: A
+  complex(dp), dimension(:,:), allocatable               :: A     ! 260104
+  integer                                                :: n
+  integer                                                :: info, i
+! integer    , dimension(size(C,1))                      :: ipiv
+  integer    , dimension(:)  , allocatable               :: ipiv  ! 260104
+  complex(dp)                                            :: phase
+  real   (dp)                                            :: aAbs,lnDetAbs
+  character(1000)                                        :: err
 
   allocate(A   (size(C,1),size(C,2)))
   allocate(ipiv(size(C,1)))
@@ -1349,15 +1349,15 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_log_determinant
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_determinant_d                                   (C)                      result(det)                     !:.:.:
-  real   (dp), dimension(:,:), intent(in)         :: C
-  real   (dp)                                     :: det
-! real   (dp), dimension(size(C,1),size(C,2))     :: A
-  real   (dp), dimension(:,:), allocatable        :: A    ! 260104
-  integer                                         :: n
-  integer                                         :: info, isign, i
-! integer    , dimension(size(C,1))               :: ipiv
-  integer    , dimension(:)  , allocatable        :: ipiv ! 260104
-  character(1000)                                 :: err
+  real   (dp), dimension(:,:), contiguous, intent(in)    :: C
+  real   (dp)                                            :: det
+! real   (dp), dimension(size(C,1),size(C,2))            :: A
+  real   (dp), dimension(:,:), allocatable               :: A    ! 260104
+  integer                                                :: n
+  integer                                                :: info, isign, i
+! integer    , dimension(size(C,1))                      :: ipiv
+  integer    , dimension(:)  , allocatable               :: ipiv ! 260104
+  character(1000)                                        :: err
 
   allocate(A   (size(C,1),size(C,2)))
   allocate(ipiv(size(C,1)))
@@ -1397,16 +1397,16 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 ! Det(C) = exp(det(1))  * det(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_log_determinant_d                               (C)                      result(det)                     !:.:.:
-  real   (dp), dimension(:,:), intent(in)         :: C
-  real   (dp), dimension(2)                       :: det
-! real   (dp), dimension(size(C,1),size(C,2))     :: A
-  real   (dp), dimension(:,:), allocatable        :: A    ! 260104
-  integer                                         :: n
-  integer                                         :: info, i, isign
-! integer    , dimension(size(C,1))               :: ipiv
-  integer    , dimension(:)  , allocatable        :: ipiv ! 260104
-  real   (dp)                                     :: aAbs,lnDetAbs
-  character(1000)                                 :: err
+  real   (dp), dimension(:,:), contiguous, intent(in)    :: C
+  real   (dp), dimension(2)                              :: det
+! real   (dp), dimension(size(C,1),size(C,2))            :: A
+  real   (dp), dimension(:,:), allocatable               :: A    ! 260104
+  integer                                                :: n
+  integer                                                :: info, i, isign
+! integer    , dimension(size(C,1))                      :: ipiv
+  integer    , dimension(:)  , allocatable               :: ipiv ! 260104
+  real   (dp)                                            :: aAbs,lnDetAbs
+  character(1000)                                        :: err
 
   allocate(A(size(C,1),size(C,2)))
   allocate(ipiv(size(C,1)))
@@ -1453,11 +1453,11 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Use PFAPACK as a more efficient algorithm
  function                                                                  array2_pfaffian_pfa(C,alg)   result(pfaffian)            !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp)                                     :: pfaffian
-  character(*), optional                          :: alg
-  character(1)                                    :: alg_
-  complex(dp), allocatable                        :: C_(:,:)
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp)                                            :: pfaffian
+  character(*), optional                                 :: alg
+  character(1)                                           :: alg_
+  complex(dp), allocatable                               :: C_(:,:)
 
   alg_ = 'P'
   if(present(alg))then
@@ -1468,8 +1468,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   case ('C','c')
    pfaffian = array2_pfaffian(C)                               ! Catterall algorithm
   case default
-   allocate(C_,source=C)
-   C_ = C
+   allocate  (C_,source=C)
    call skpfa(C_,pfaffian)                                     ! PFAPACK   algorithm
   end select
 
@@ -1477,13 +1476,13 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_pfaffian_pfa
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_log_pfaffian_pfa                                (C,alg)                  result(pfaffian)                !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp), dimension(2)                       :: pfaffian
-  complex(dp), dimension(2)                       :: lpf
-  character(*), optional                          :: alg
-  character(1)                                    :: alg_
-  complex(dp), allocatable                        :: C_(:,:)
-
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp), dimension(2)                              :: pfaffian
+  complex(dp), dimension(2)                              :: lpf
+  character(*), optional                                 :: alg
+  character(1)                                           :: alg_
+  complex(dp), allocatable                               :: C_(:,:)
+       
   alg_ = 'P'
   if(present(alg))then
    alg_ = alg(1:1)
@@ -1493,8 +1492,7 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
   case ('C','c')
    pfaffian = array2_log_pfaffian(C)                               !Pf(C)= exp(pfaffian(1)) * pfaffian(2)    Catterall algorithm
   case default
-   allocate(C_,source=C)
-   C_ = C
+   allocate   (C_,source=C)
    call skpf10(C_,lpf)  ! Pf(C) = lpf(1) * 10**lpf(2)                                                        
    pfaffian(1) = log(abs(lpf(1))) + lpf(2) * log(10.0_dp)          !Pf(C)= exp(pfaffian(1)) * pfaffian(2)    PFAPACK   algorithm
    pfaffian(2) = exp(IMU * atan2(aimag(lpf(1)),real(lpf(1))))      !           pfaffian(1) = log(|Pf(C)|)
@@ -1514,16 +1512,16 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !See ~/ikkt/codes/Pfaffian for original code.
 !-----------------------------------------------------------------------------------------------------------------------------------
  function                                                                  array2_pfaffian(C)       result(pfaffian)                !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp)                                     :: pfaffian
-! complex(dp), dimension(size(C,1),size(C,2))     :: M
-  complex(dp), dimension(:,:), allocatable        :: M        ! 260104
-  integer                                         :: n
-  integer                                         :: i,j,k,jpiv,interchange
-  real   (dp)                                     :: pivot
-! complex(dp),dimension(size(C,1))                :: dum,sc
-  complex(dp),dimension(:)   , allocatable        :: dum,sc   ! 260104
-  complex(dp)                                     :: scale,f
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp)                                            :: pfaffian
+! complex(dp), dimension(size(C,1),size(C,2))            :: M
+  complex(dp), dimension(:,:), allocatable               :: M        ! 260104
+  integer                                                :: n
+  integer                                                :: i,j,k,jpiv,interchange
+  real   (dp)                                            :: pivot
+! complex(dp),dimension(size(C,1))                       :: dum,sc
+  complex(dp),dimension(:)   , allocatable               :: dum,sc   ! 260104
+  complex(dp)                                            :: scale,f
 
   allocate(M  (size(C,1),size(C,2)))
   allocate(dum(size(C,1)))
@@ -1608,18 +1606,18 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_pfaffian
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_log_pfaffian                                    (C)                      result(pfaffian)                !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp), dimension(2)                       :: pfaffian
-! complex(dp), dimension(size(C,1),size(C,2))     :: M
-  complex(dp), dimension(:,:), allocatable        :: M       ! 260104
-  integer                                         :: n
-  integer                                         :: i,j,k,jpiv,interchange
-  real   (dp)                                     :: pivot
-! complex(dp),dimension(size(C,1))                :: dum,sc
-  complex(dp),dimension(:)   , allocatable        :: dum,sc  ! 260104
-  complex(dp)                                     :: scale,f
-  real   (dp)                                     :: lnPfaffianAbs,AbsM
-  complex(dp)                                     :: phase
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp), dimension(2)                              :: pfaffian
+! complex(dp), dimension(size(C,1),size(C,2))            :: M
+  complex(dp), dimension(:,:), allocatable               :: M       ! 260104
+  integer                                                :: n
+  integer                                                :: i,j,k,jpiv,interchange
+  real   (dp)                                            :: pivot
+! complex(dp),dimension(size(C,1))                       :: dum,sc
+  complex(dp),dimension(:)   , allocatable               :: dum,sc  ! 260104
+  complex(dp)                                            :: scale,f
+  real   (dp)                                            :: lnPfaffianAbs,AbsM
+  complex(dp)                                            :: phase
 
   allocate(M  (size(C,1),size(C,2)))
   allocate(dum(size(C,1)))
@@ -1722,16 +1720,16 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
 !Slower but easier coding. Keep it for reference. array2_log_pfaffian is approximately 3 times faster than array2_log_pfaffian2 (intel compiler)
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_pfaffian2                                       (C)                      result(pfaffian)                !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp)                                     :: pfaffian
-! complex(dp), dimension(size(C,1),size(C,2))     :: M
-  complex(dp), dimension(:,:), allocatable        :: M    ! 260104
-  integer                                         :: n
-  integer                                         :: i,j,k,jpiv,interchange
-  real   (dp)                                     :: pivot
-! complex(dp),dimension(size(C,1))                :: dum
-  complex(dp), dimension(:)  , allocatable        :: dum  ! 260104
-  complex(dp)                                     :: scale,f
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp)                                            :: pfaffian
+! complex(dp), dimension(size(C,1),size(C,2))            :: M
+  complex(dp), dimension(:,:), allocatable               :: M    ! 260104
+  integer                                                :: n
+  integer                                                :: i,j,k,jpiv,interchange
+  real   (dp)                                            :: pivot
+! complex(dp),dimension(size(C,1))                       :: dum
+  complex(dp), dimension(:)  , allocatable               :: dum  ! 260104
+  complex(dp)                                            :: scale,f
 
   allocate(M  (size(C,1),size(C,2)) )
   allocate(dum(size(C,1)) )
@@ -1811,18 +1809,18 @@ pure subroutine     array2_matmul_lapack_vd_sub                            (v,A,
  end function       array2_pfaffian2
 !-----------------------------------------------------------------------------------------------------------------------------------
  function           array2_log_pfaffian2                                   (C)                      result(pfaffian)                !:.:.:
-  complex(dp), dimension(:,:), intent(in)         :: C
-  complex(dp), dimension(2)                       :: pfaffian
-! complex(dp), dimension(size(C,1),size(C,2))     :: M
-  complex(dp), dimension(:,:), allocatable        :: M    ! 260104
-  integer                                         :: n
-  integer                                         :: i,j,k,jpiv,interchange
-  real   (dp)                                     :: pivot
-! complex(dp),dimension(size(C,1))                :: dum
-  complex(dp), dimension(:)  , allocatable        :: dum  ! 260104
-  complex(dp)                                     :: scale,f
-  real   (dp)                                     :: lnPfaffianAbs,AbsM
-  complex(dp)                                     :: phase
+  complex(dp), dimension(:,:), contiguous, intent(in)    :: C
+  complex(dp), dimension(2)                              :: pfaffian
+! complex(dp), dimension(size(C,1),size(C,2))            :: M
+  complex(dp), dimension(:,:), allocatable               :: M    ! 260104
+  integer                                                :: n
+  integer                                                :: i,j,k,jpiv,interchange
+  real   (dp)                                            :: pivot
+! complex(dp),dimension(size(C,1))                       :: dum
+  complex(dp), dimension(:)  , allocatable               :: dum  ! 260104
+  complex(dp)                                            :: scale,f
+  real   (dp)                                            :: lnPfaffianAbs,AbsM
+  complex(dp)                                            :: phase
 
   allocate(M  (size(C,1),size(C,2)))
   allocate(dum(size(C,1)))

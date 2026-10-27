@@ -2212,9 +2212,10 @@ contains
 
   call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+! do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+  do k=1, size(C,3); do j=1, size(C,2); do i=1, size(C,1)   ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i,j,k) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j,k))) * CMPLX(cos(TWOPI*y(i,j,k)), sin(TWOPI*y(i,j,k)), kind=dp)
-  end do
+  end do           ; end do           ; end do
 
  end subroutine     random_number_array3_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2229,9 +2230,10 @@ contains
 
   call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
-  do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+! do concurrent (k=1:size(C,3), j=1:size(C,2), i=1:size(C,1)) ! 260104
+  do k=1, size(C,3); do j=1, size(C,2); do i=1, size(C,1)   ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i,j,k) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j,k))) * cos(TWOPI*y(i,j,k))
-  end do
+  end do           ; end do           ; end do
 
  end subroutine random_number_array3_gaussian_d
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2246,9 +2248,10 @@ contains
 
   call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+! do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+  do j=1, size(C,2); do i=1, size(C,1)   ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i,j) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * CMPLX(cos(TWOPI*y(i,j)), sin(TWOPI*y(i,j)), kind=dp)
-  end do
+  end do           ; end do
 
  end subroutine     random_number_array2_gaussian
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2263,9 +2266,10 @@ contains
 
   call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
-  do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+! do concurrent (j=1:size(C,2), i=1:size(C,1)) ! 260104
+  do j=1, size(C,2); do i=1, size(C,1)   ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i,j) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i,j))) * cos(TWOPI*y(i,j))
-  end do
+  end do           ; end do
 
  end subroutine random_number_array2_gaussian_d
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2280,7 +2284,8 @@ contains
 
   call random_number(x); call random_number(y); !x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * CMPLX(cos(TWOPI*y),sin(TWOPI*y),kind=dp)
-  do concurrent (i=1:size(C,1)) ! 260104
+! do concurrent (i=1:size(C,1)) ! 260104
+  do i=1, size(C,1) ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i))) * CMPLX(cos(TWOPI*y(i)), sin(TWOPI*y(i)), kind=dp)
   end do
  end subroutine     random_number_array1_gaussian
@@ -2296,7 +2301,8 @@ contains
 
   call random_number(x); call random_number(y);! x = 1.0_dp -x ! avoid the x = 0 case
 ! C = sigma * sqrt(-2.0_dp * log(x)) * cos(TWOPI*y)
-  do concurrent (i=1:size(C,1)) ! 260104
+! do concurrent (i=1:size(C,1)) ! 260104
+  do i=1, size(C,1) ! NVIDIA: prevent compiler from offloading the loop to the GPU
    C(i) = sigma * sqrt(-2.0_dp * log(1.0_dp - x(i))) * cos(TWOPI*y(i))
   end do
  end subroutine     random_number_array1_gaussian_d
@@ -3164,9 +3170,10 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1),j=1:size(C,2),k=1:size(C,3))
+! do concurrent(i=1:size(C,1),j=1:size(C,2),k=1:size(C,3))
+  do k=1,size(C,3); do j=1,size(C,2); do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_complex8_z(C(i,j,k)) ) itis = .true.
-  end do
+  end do;           end do;           end do;
 
  end  function      array3_is_nan
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -3177,9 +3184,10 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1),j=1:size(C,2))
+! do concurrent(i=1:size(C,1),j=1:size(C,2))
+  do j=1,size(C,2); do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_complex8_z(C(i,j)) )   itis = .true.
-  end do
+  end do;           end do;
 
  end  function       array2_is_nan
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -3190,7 +3198,8 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1))
+! do concurrent(i=1:size(C,1))
+  do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_complex8_z(C(i)) )     itis = .true.
   end do
 
@@ -3203,9 +3212,10 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1),j=1:size(C,2),k=1:size(C,3))
+! do concurrent(i=1:size(C,1),j=1:size(C,2),k=1:size(C,3))
+  do k=1,size(C,3); do j=1,size(C,2); do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_real8_d(C(i,j,k)) ) itis = .true.
-  end do
+  end do;           end do;           end do;
 
  end function       array3_is_nan_d
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -3216,9 +3226,10 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1),j=1:size(C,2))
+! do concurrent(i=1:size(C,1),j=1:size(C,2))
+  do j=1,size(C,2); do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_real8_d(C(i,j  )) ) itis = .true.
-  end do
+  end do;           end do;
 
  end  function      array2_is_nan_d
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -3229,7 +3240,8 @@ contains
 
   itis = .false.
 
-  do concurrent(i=1:size(C,1))
+! do concurrent(i=1:size(C,1))
+  do i=1,size(C,1)          ! replaced for nvfortran offload to GPU problem
    if( matrix_return_is_nan_real8_d(C(i    )) ) itis = .true.
   end do
 

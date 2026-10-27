@@ -15,7 +15,7 @@ OBJECTS= slasktrd.o slasktrf.o sskbpf10.o sskbpfa.o sskbtrd.o \
 	 sktrf.o sktf2.o skbtrd.o
 
 FORT = gfortran
-FFLAGS  =  -O3 -mtune=native -funroll-loops -fopenmp -pthread  -fimplicit-none
+FFLAGS  =  -O3 -mtune=native -funroll-loops -fopenmp -pthread  -fimplicit-none -fallow-argument-mismatch
 #FFLAGS =  -O3 -fimplicit-none
 #FFLAGS =  -g -fimplicit-none
 

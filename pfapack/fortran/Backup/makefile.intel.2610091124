@@ -14,13 +14,12 @@ OBJECTS= slasktrd.o slasktrf.o sskbpf10.o sskbpfa.o sskbtrd.o \
 	 skpfa.o skpf10.o skbpfa.o skbpf10.o sktrd.o sktd2.o \
 	 sktrf.o sktf2.o skbtrd.o
 
-FORT = gfortran
-FFLAGS  =  -O3 -mtune=native -funroll-loops -fopenmp -pthread  -fimplicit-none
-#FFLAGS =  -O3 -fimplicit-none
-#FFLAGS =  -g -fimplicit-none
+FORT   = ifort
+
+FFLAGS =  -O3 -heap-arrays 64 -xHost  -parallel   -qmkl=parallel
 
 all: $(OBJECTS)
-	$(AR) rvu libpfapack.a $(OBJECTS)
+	$(AR) rc libpfapack.a $(OBJECTS)
 
 clean:
 	rm -f *.o

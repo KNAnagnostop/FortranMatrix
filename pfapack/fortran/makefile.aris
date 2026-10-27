@@ -14,11 +14,16 @@ OBJECTS= slasktrd.o slasktrf.o sskbpf10.o sskbpfa.o sskbtrd.o \
 	 skpfa.o skpf10.o skbpfa.o skbpf10.o sktrd.o sktd2.o \
 	 sktrf.o sktf2.o skbtrd.o
 
-FORT   = ifort
+FORT   = flang  # module load aocc/5.0.0 openmpi/4.1.8/aocc aocl/5.1.0; mpifort -showme:command
 
-FFLAGS =  -O3 -heap-arrays 64 -xHost  -parallel   -mkl=parallel
+FFLAGS =  -O3 -march=znver3 -mtune=znver3 -fopenmp -funroll-loops    -flto
+
+AR     = llvm-ar
+RANLIB = llvm-ranlib
+LD     = ld.lld
 
 all: $(OBJECTS)
+	@echo "Using AR= $(AR) RANLIB=$(RANLIB) LD=$(LD)"
 	$(AR) rc libpfapack.a $(OBJECTS)
 
 clean:

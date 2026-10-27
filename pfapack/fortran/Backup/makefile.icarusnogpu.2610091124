@@ -14,12 +14,17 @@ OBJECTS= slasktrd.o slasktrf.o sskbpf10.o sskbpfa.o sskbtrd.o \
 	 skpfa.o skpf10.o skbpfa.o skbpf10.o sktrd.o sktd2.o \
 	 sktrf.o sktf2.o skbtrd.o
 
-FORT   = ifort
+FORT   = nvfortran  # module load nvhpc-local-hpcx-cuda13-openmpi5/26.5
 
-FFLAGS =  -O3 -heap-arrays 64 -xHost  -parallel   -qmkl=parallel
+FFLAGS =  -fast -O3 -Mvect -Minline -stdpar=multicore -Mconcur -mp -Mnvpl -Mscalapack -nvmalloc -Minfo
+
+#AR     = llvm-ar
+#RANLIB = llvm-ranlib
+#LD     = ld.lld
 
 all: $(OBJECTS)
-	$(AR) rvu libpfapack.a $(OBJECTS)
+	@echo "Using AR= $(AR) RANLIB=$(RANLIB) LD=$(LD)"
+	$(AR) rc libpfapack.a $(OBJECTS)
 
 clean:
 	rm -f *.o
