@@ -1,0 +1,681 @@
+% ===================================================================
+% Section 4: Class Vector
+% ===================================================================
+\section{Class \texttt{Vector}}
+\label{sec:class_vector}
+
+The \typename{Vector} derived type encapsulates a one-dimensional double-precision complex (\typename{complex(8)} / \typename{complex(real64)}) vector with arbitrary lower/upper index bounds and an optional user label. Unlike \typename{Matrix} and \typename{DMatrix}, \typename{Vector} is a standalone type (it does not extend \texttt{MatrixClass} and has no \texttt{mtype} symmetry field).
+
+% -------------------------------------------------------------------
+\subsection{Components}
+\label{subsec:vec_components}
+
+% ===================================================================
+% type(Vector)
+% ===================================================================
+\manentry{Derived Type}{type(Vector)}{Vector (type)}{Double-precision complex 1D vector class with index bounds and label metadata}{vec:type}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+type(Vector) :: vec
+! Components: vec % n, vec % is, vec % ie, vec % name, vec % v(is:ie)
+\end{lstlisting}
+
+\manheading{Brief}
+Stores a 1D allocatable \typename{complex(8)} array \texttt{v(is:ie)} of length \texttt{n} together with its index range \texttt{is:ie} and a 20-character \texttt{name}.
+
+\manheading{Description}
+Before construction, \texttt{vec \% n = vec \% is = vec \% ie = 0} and \texttt{vec \% v} is unallocated. Once constructed, elements are indexed over \texttt{is:ie} where \texttt{ie = is + n - 1}.
+
+\manheading{Data Components}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, default 0}{Number of vector elements (\texttt{n == 0} indicates uninitialized state).}
+  \argitem{is, ie}{integer, default 0}{Lower and upper index bounds of \texttt{v}, satisfying \texttt{ie = is + n - 1}.}
+  \argitem{name}{character(20), default \texttt{''}}{User label (\texttt{name\_len = 20}) displayed by \procname{\% print}.}
+  \argitem{v(:)}{complex(8), allocatable}{Allocated 1D complex array \texttt{v(is:ie)}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: vec
+
+vec = Vector(8, is=0, name='psi')
+print *, vec % n, vec % is, vec % ie   ! 8, 0, 7
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Constructors}
+\label{subsec:vec_constructors}
+
+% ===================================================================
+% Vector(...) constructor
+% ===================================================================
+\manentry{Generic Constructor}{Vector(...)}{Vector (constructor)}{Constructs and allocates a \texttt{type(Vector)} (zero, constant, random, or from 1D complex array)}{vec:constructor}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+vec = Vector(n,      [is], [name])                ! pure: zero vector
+vec = Vector(n, r,   [is], [name])                ! pure: filled with real r
+vec = Vector(n, z,   [is], [name])                ! pure: filled with cmplx z
+vec = Vector(C,      [is], [name])                ! pure: copied from C(:)
+vec = Vector(rtype, n, [is], [name], [sigma])     ! uniform or Gaussian random
+\end{lstlisting}
+
+\manheading{Brief}
+Allocates a \typename{type(Vector)} of length \argname{n} (or \texttt{size(C)}), configures index bounds \texttt{is:ie} and \texttt{name}, and fills \texttt{vec \% v}.
+
+\manheading{Description}
+\begin{enumerate}
+  \item \textbf{\texttt{Vector(n, [is], [name])}} (\texttt{pure}): Allocates \texttt{v(is:is+n-1)} and sets all elements to \texttt{(0.0\_8, 0.0\_8)}. Defaults: \texttt{is = 1}, \texttt{name = ''}.
+  \item \textbf{\texttt{Vector(n, r, [is], [name])}} and \textbf{\texttt{Vector(n, z, [is], [name])}} (\texttt{pure}): Allocate a vector of length \argname{n} filled with a \typename{real(8)} scalar \argname{r} or \typename{complex(8)} scalar \argname{z}.
+  \item \textbf{\texttt{Vector(C, [is], [name])}} (\texttt{pure}): Copies a 1D \typename{complex(8)} array \argname{C(:)}. Pass \texttt{is = lbound(C,1)} to preserve non-unit bounds.
+  \item \textbf{\texttt{Vector(rtype, n, [is], [name], [sigma])}}: Dispatches on \argname{rtype(1:1)}: \texttt{'r'}/\texttt{'R'}/\texttt{'u'}/\texttt{'U'} fills with uniform $[0,1)+i[0,1)$ numbers; \texttt{'g'}/\texttt{'G'} fills with Gaussian numbers of standard deviation \argname{sigma} (default \texttt{1.0\_8}). Passing an empty string or any other leading character aborts via \texttt{matrix\_error}.
+\end{enumerate}
+
+\begin{warnbox}[Argument Order Differs from \texttt{Matrix}]
+In \typename{Vector} constant constructors, the length \argname{n} comes \emph{first} and the scalar comes \emph{second}: \lcodef{Vector(n, r)} and \lcodef{Vector(n, z)} (whereas \lcodef{Matrix(r, m)} takes the scalar first). Also note that \texttt{rtype = '1'} is only supported by \typename{Matrix}/\typename{DMatrix}, not by \typename{Vector}.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, intent(in)}{Length of the vector.}
+  \argitem{r / z}{real(8) / complex(8), intent(in)}{Constant fill value (passed \emph{after} \argname{n}).}
+  \argitem{C}{complex(8), dimension(:), intent(in)}{Source 1D complex array for \texttt{Vector(C, ...)}.}
+  \argitem{is}{integer, optional, intent(in)}{Lower index bound (defaults to \texttt{1}).}
+  \argitem{name}{character(*), optional, intent(in)}{Optional vector label (up to 20 characters; defaults to \texttt{''}).}
+  \argitem{rtype}{character(*), intent(in)}{Random generator: \texttt{'uniform'}/\texttt{'random'} (\texttt{'u'}/\texttt{'r'}) or \texttt{'gaussian'} (\texttt{'g'}).}
+  \argitem{sigma}{real(8), optional, intent(in)}{Gaussian standard deviation (defaults to \texttt{1.0\_8}).}
+  \argitem{vec}{type(Vector), return value}{Allocated \typename{Vector} object.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+complex(8)   :: c(0:3) = (1.0_8, -1.0_8)
+type(Vector) :: v0, v1, v2, v3, v4
+
+v0 = Vector(4)
+v1 = Vector(4, 2.5_8, is=0, name='ConstR')
+v2 = Vector(4, (1.0_8, 2.0_8))
+v3 = Vector('gaussian', 8, sigma=0.5_8)
+v4 = Vector(c, is=lbound(c,1))
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Component Procedures}
+\label{subsec:vec_comp_procs}
+
+\typename{type(Vector)} defines eight public type-bound generics: \procname{save}, \procname{read}, \procname{print}, \procname{random}, \procname{gaussian}, \procname{conjg}, \procname{re}, and \procname{im}. (Note that the internal type-bound procedure \texttt{vector\_norm} is private; compute norms with the standalone function \procname{norm(vec)}.)
+
+% ===================================================================
+% VEC % save and VEC % read
+% ===================================================================
+\manentry{Type-Bound Subroutines}{VEC \% save, VEC \% read}{Vector \% save, Vector \% read}{Plain-text sequential I/O for \texttt{Vector} elements}{vec:save_read}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector \% read}}}{Vector \% read}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vec % save([unit], [fmt])
+call vec % read([unit])
+\end{lstlisting}
+
+\manheading{Brief}
+Write (\procname{\% save}) or read (\procname{\% read}) raw \typename{complex(8)} elements \texttt{vec \% v(is:ie)} sequentially from a Fortran unit.
+
+\manheading{Description}
+\procname{vec \% save} writes each element \texttt{vec \% v(i)} from \texttt{i = is} to \texttt{ie} using \texttt{'(2'//fmt//')'} (defaults: \texttt{unit = f\_mout}, \texttt{fmt = 'G28.17'}). \procname{vec \% read} reads \texttt{x, y} pairs via list-directed \texttt{read(un,*)} (default internal \texttt{f\_minput = stdin}) into pre-allocated \texttt{vec \% v(is:ie)}. Both return silently if \texttt{vec \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(in) / intent(inout)}{Target vector (\texttt{in} for \procname{\% save}; \texttt{inout} for \procname{\% read}).}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran I/O unit (defaults to \procname{f\_mout} for save, \texttt{stdin} for read).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Real edit descriptor for \procname{\% save} (defaults to \texttt{'G28.17'}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v1, v2
+integer      :: un
+
+v1 = Vector('uniform', 4)
+open(newunit=un, file='vec.dat', status='replace')
+call v1 % save(unit=un)
+rewind(un)
+v2 = Vector(4)
+call v2 % read(unit=un)
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% VEC % print
+% ===================================================================
+\manentry{Type-Bound Subroutine}{VEC \% print}{Vector \% print}{Pretty-prints a \texttt{Vector}, metadata info, or Mathematica list}{vec:print}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vec % print([unit], [fmt], [form], [name], [ips], [ipe])
+\end{lstlisting}
+
+\manheading{Brief}
+Displays \texttt{vec \% v} (or sub-range \texttt{ips:ipe}) in \texttt{'Default'}, \texttt{'Info'}, or \texttt{'Mathematica'} format, with optional label override \argname{name}.
+
+\manheading{Description}
+Checks that \texttt{vec \% n /= 0} and \texttt{vec \% v} is allocated (aborting via \texttt{matrix\_error} otherwise), clamps \argname{ips, ipe} inside \texttt{is:ie}, and prints:
+\begin{itemize}
+  \item \texttt{form = 'Default'} (default): \texttt{\#pvstart: <name>} header, one complex element per line with \texttt{(2//fmt)} (default \texttt{fmt = 'G28.17'}), and \texttt{\#pvend: ]} footer.
+  \item \texttt{form = 'Info'}: Single-line metadata and allocation bounds summary.
+  \item \texttt{form = 'Mathematica'}: 1D list \texttt{<name> = \{...\};} using \texttt{Interpreter["Number"]}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(in)}{Initialized complex vector.}
+  \argitem{unit}{integer, optional, intent(in)}{Output Fortran unit (defaults to \procname{f\_mout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Real format descriptor (defaults to \texttt{'G28.17'}).}
+  \argitem{form}{character(*), optional, intent(in)}{\texttt{'Default'}, \texttt{'Info'}, or \texttt{'Mathematica'} (checked by first character).}
+  \argitem{name}{character(*), optional, intent(in)}{Optional override for \texttt{vec \% name} in output headers.}
+  \argitem{ips, ipe}{integer, optional, intent(in)}{Optional starting and ending index slice.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v1
+
+v1 = Vector('gaussian', 20, name='eval')
+call v1 % print(form='Info')
+call v1 % print(ips=1, ipe=5, form='Mathematica')
+\end{lstlisting}
+
+% ===================================================================
+% VEC % random and VEC % gaussian
+% ===================================================================
+\manentry{Type-Bound Subroutines}{VEC \% random, VEC \% gaussian}{Vector \% random, Vector \% gaussian}{Fill a pre-allocated \texttt{Vector} with uniform or Gaussian complex random entries}{vec:rand_gauss}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector \% gaussian}}}{Vector \% gaussian}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vec % random()
+call vec % gaussian([sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Overwrite \texttt{vec \% v} with uniform $[0,1)+i[0,1)$ (\procname{\% random}) or Box--Muller Gaussian (\procname{\% gaussian}) complex random numbers.
+
+\manheading{Description}
+Delegate to \cbox{call random\_number(vec \% v)} and \cbox{call random\_number(vec \% v, sigma=s)} (where \texttt{s} defaults to \texttt{1.0\_8}). Return silently if \texttt{vec \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(inout)}{Pre-allocated complex vector.}
+  \argitem{sigma}{real(8), optional}{Gaussian standard deviation for \procname{\% gaussian} (defaults to \texttt{1.0\_8}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v1
+
+v1 = Vector(8)
+call v1 % random()
+call v1 % gaussian(sigma=0.25_8)
+\end{lstlisting}
+
+% ===================================================================
+% VEC % conjg, VEC % re, VEC % im
+% ===================================================================
+\manentry{Type-Bound Pure Functions}{VEC \% conjg, VEC \% re, VEC \% im}{Vector \% conjg, Vector \% re, Vector \% im}{Return the complex conjugate, real part, or imaginary part of a \texttt{Vector}}{vec:comp_re_im_conjg}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector \% re}}}{Vector \% re}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector \% im}}}{Vector \% im}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v2 = v1 % conjg()   ! pure: returns type(Vector)  with CONJG(v1 % v)
+u1 = v1 % re()      ! pure: returns type(DVector) with REAL(v1 % v, kind=8)
+u2 = v1 % im()      ! pure: returns type(DVector) with AIMAG(v1 % v)
+\end{lstlisting}
+
+\manheading{Brief}
+Construct a new \typename{Vector} (\procname{\% conjg}) or \typename{DVector} (\procname{\% re}, \procname{\% im}) copying all metadata (\texttt{n, is, ie, name}) from \argname{v1}.
+
+\manheading{Description}
+All three methods are \texttt{pure} type-bound functions. Note that the standalone \procname{conjg}, \procname{real}, and \procname{aimag} generics are \emph{not} overloaded for \typename{Vector}; use these type-bound methods instead.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(in)}{Passed-object complex vector.}
+  \argitem{vecb}{type(Vector) or type(DVector), return value}{Transformed vector with copied metadata.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector)  :: v1, v2
+type(DVector) :: u_re, u_im
+
+v1   = Vector('gaussian', 6, name='psi')
+v2   = v1 % conjg()
+u_re = v1 % re()
+u_im = v1 % im()
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Operators}
+\label{subsec:vec_operators}
+
+\mansubgroup{Assignment}
+
+% ===================================================================
+% assignment(=) Vector
+% ===================================================================
+\manentry{Overloaded Operator}{assignment(=) (Vector)}{Vector: assignment(=)}{Assigns a \texttt{Vector}, \texttt{DVector}, 1D complex array, or scalar to a \texttt{Vector}}{vec:op_assign}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v1 = v2    ! type(Vector)        -> intrinsic copy (metadata + values)
+v1 = u1    ! type(DVector)       -> copies metadata if uninit; aborts on size mismatch
+v1 = a     ! complex(8) :: a(:)  -> keeps bounds/name; aborts on size mismatch
+v1 = b     ! real(8)    :: b(:)  -> keeps bounds/name; aborts on size mismatch
+v1 = r     ! real(8)    :: r     -> fills pre-allocated v1 % v = r
+v1 = z     ! complex(8) :: z     -> fills pre-allocated v1 % v = z
+\end{lstlisting}
+
+\manheading{Brief}
+Overloads \texttt{=} for assigning a \typename{Vector}, \typename{DVector}, 1D \typename{complex(8)} array, or real/complex scalar to a \typename{Vector}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \texttt{v1 = v2}: Copies all metadata and data cleanly whether or not \argname{v1} was initialized.
+  \item \texttt{v1 = u1}, \texttt{v1 = a}, and \texttt{v1 = b}: If \texttt{v1 \% n == 0} (uninitialized), initializes metadata (from \argname{u1} or \texttt{is = 1..size}, \texttt{name = ''}) and copies values (promoted to \typename{complex(8)} for real sources). If \argname{v1} was already initialized, preserves its \texttt{is, ie, name} and copies values; if \texttt{v1 \% n /= size}, the program stops with an \texttt{error stop} message naming the procedure (exit status 1).
+  \item \texttt{v1 = r} and \texttt{v1 = z}: Require \texttt{v1 \% v} to be allocated (aborting via Fortran \texttt{error stop} if unconstructed) and assign \texttt{v1 \% v = r} or \texttt{z}.
+\end{itemize}
+
+\begin{notebox}[Construct \texttt{v1} Before Scalar Assignment]
+Always construct \argname{v1} before executing \lcodef{v1 = r} or \lcodef{v1 = z}; assigning a scalar to an unallocated \typename{Vector} aborts via Fortran \texttt{error stop}.
+\end{notebox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vecb}{type(Vector), intent(inout)}{Destination complex vector.}
+  \argitem{rhs}{type(Vector), type(DVector), complex(8)(:), real(8)(:), real(8), or complex(8), intent(in)}{Source value or array.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector)  :: v1
+type(DVector) :: u1
+complex(8)    :: a(4) = (1.0_8, 1.0_8)
+
+v1 = Vector(4, is=0, name='Target')
+v1 = a                ! preserves is=0, name='Target'
+v1 = (2.0_8, -1.0_8)  ! OK because v1 is allocated
+u1 = DVector('uniform', 4)
+v1 = u1
+\end{lstlisting}
+
+\mansubgroup{Addition, Subtraction, Scalar Multiplication, Division, and Power}
+
+% ===================================================================
+% operator(+) and operator(-) Vector
+% ===================================================================
+\manentry{Overloaded Operators}{operator(+), operator(-) (Vector)}{Vector: operator(+), operator(-)}{Element-wise addition, unary negation, and subtraction for \texttt{Vector}}{vec:op_plus_minus}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: operator(-)}}}{Vector: operator(-)}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v3 = v1 + v2;   v3 = v1 - v2;   v3 = -v1        ! Vector +/- Vector, unary -
+v3 = v1 + u1;   v3 = u1 + v1;   v3 = v1 - u1    ! Vector and DVector (pure)
+v3 = v1 + a;    v3 = a  + v1;   v3 = v1 - a     ! complex(8)(:) array (pure)
+v3 = v1 + b;    v3 = b  + v1;   v3 = v1 - b     ! real(8)(:) array (pure)
+v3 = v1 + r;    v3 = r  + v1;   v3 = v1 - r     ! real(8) scalar (pure)
+v3 = v1 + z;    v3 = z  + v1;   v3 = v1 - z     ! complex(8) scalar (pure)
+! Also reversed subtractions: u1 - v1, a - v1, b - v1, r - v1, z - v1
+\end{lstlisting}
+
+\manheading{Brief}
+Perform \texttt{pure} element-wise vector addition, subtraction, or unary negation, inheriting metadata from the \typename{Vector} operand (operands of different length abort the program).
+
+\manheading{Description}
+All unary and binary \procname{+} and \procname{-} overloads for \typename{Vector} are \texttt{pure} functions returning a \typename{type(Vector)} whose metadata (\texttt{n, is, ie, name}) are copied from the \typename{Vector} operand (or \argname{v1} in \texttt{v1 +/- v2}). If the array/vector lengths differ, the program stops with an \texttt{error stop} message naming the procedure (exit status 1). Note that both \typename{complex(8)(:)} arrays \argname{a} and \typename{real(8)(:)} arrays \argname{b} are supported in \procname{+} and \procname{-}.
+
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{class(Vector), class(DVector), complex(8)(:), real(8)(:), complex(8), or real(8), intent(in)}{Operands.}
+  \argitem{result}{type(Vector), return value}{Allocated sum or difference vector.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector)  :: v1, v2, v3
+type(DVector) :: u1
+
+v1 = Vector('gaussian', 4)
+u1 = DVector('uniform', 4)
+v2 = v1 + u1                 ! correct mixed addition
+v3 = -v1 - (0.0_8, 1.0_8)    ! unary negation and complex scalar shift
+\end{lstlisting}
+
+% ===================================================================
+% Scalar *, /, ** Vector
+% ===================================================================
+\manentry{Overloaded Operators}{operator(*), operator(/), operator(**) (Vector)}{Vector: scalar *, /, **}{Scalar multiplication, scalar division, and element-wise power for \texttt{Vector}}{vec:op_scale_pow}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: operator(/)}}}{Vector: operator(/)}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: operator(**)}}}{Vector: operator(**)}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v2 = r * v1;   v2 = v1 * r;   v2 = v1 / r      ! real(8) scaling (pure)
+v2 = z * v1;   v2 = v1 * z;   v2 = v1 / z      ! complex(8) scaling (pure)
+v2 = v1 ** k;  v2 = v1 ** x;  v2 = v1 ** z     ! element-wise power (pure)
+\end{lstlisting}
+
+\manheading{Brief}
+Scale a \typename{Vector} by a real or complex scalar or raise each element \texttt{v1 \% v(i)} to an integer, real, or complex power.
+
+\manheading{Description}
+All overloads are \texttt{pure} functions copying metadata (\texttt{n, is, ie, name}) from \argname{v1} to \argname{v2}. For \procname{**}, \texttt{k} is \typename{integer}, \texttt{x} is \typename{real(8)}, and \texttt{z} is \typename{complex(8)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{veca}{class(Vector), intent(in)}{Input complex vector.}
+  \argitem{scalar / n}{real(8), complex(8), or integer, intent(in)}{Scalar multiplier/divisor or element-wise exponent.}
+  \argitem{vecb}{type(Vector), return value}{Result \typename{Vector} with copied metadata.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v1, v2
+
+v1 = Vector('gaussian', 4, name='psi')
+v2 = (0.0_8, 1.0_8) * v1 / norm(v1)
+v2 = v1 ** 2
+\end{lstlisting}
+
+\mansubgroup{Matrix--Vector Multiplication}
+
+% ===================================================================
+% operator(*) Matrix * Vector
+% ===================================================================
+\manentry{Overloaded Operator}{operator(*) (Matrix--Vector)}{Vector: Matrix * Vector}{Computes matrix--vector products $M v$ and $v^T M$ via \texttt{BLAS}}{vec:op_matvec}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v2 = m1 * v1   ! m1(is:ie, js:je) * v1 -> v2 % v(is:ie), v2 % name = v1 % name
+v2 = v1 * m1   ! v1 * m1(is:ie, js:je) -> v2 % v(js:je), v2 % name = v1 % name
+\end{lstlisting}
+
+\manheading{Brief}
+Multiplies a \typename{Matrix} \argname{m1} and a \typename{Vector} \argname{v1} via \texttt{LMATMUL} (\texttt{zhemv} or \texttt{zgemv}), returning a \typename{Vector}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \lcodef{v2 = m1 * v1}: Allocates \argname{v2} with length \texttt{m1 \% m}, bounds \texttt{m1\%is:m1\%ie}, and \texttt{v2 \% name = v1 \% name}. Calls \texttt{zhemv} when \texttt{m1 \% mtype = 'ZH'} (since Hermitian \texttt{m1} has second char \texttt{'H'}) and \texttt{zgemv('N', ...)} otherwise.
+  \item \lcodef{v2 = v1 * m1}: Allocates \argname{v2} with length \texttt{m1 \% n}, bounds \texttt{m1\%js:m1\%je}, and \texttt{v2 \% name = v1 \% name}. Uses \texttt{LMATMUL(CONJG(m1 \% v), v1 \% v, type='H')} when \texttt{m1 \% mtype = 'ZH'}, and \texttt{zgemv('T', ...)} otherwise.
+\end{itemize}
+If matrix and vector dimensions are incompatible (\texttt{m1 \% n /= v1 \% n} or \texttt{m1 \% m /= v1 \% n}), the program aborts via \texttt{matrix\_error}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Matrix factor.}
+  \argitem{vecb}{class(Vector), intent(in)}{Vector factor.}
+  \argitem{vecc}{type(Vector), return value}{Product vector (dimension mismatches abort).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+type(Vector) :: v1, v2, v3
+
+m1 = Matrix('gaussian', 3, 5, is=0, js=10)
+v1 = Vector('gaussian', 5, name='colvec')
+v2 = m1 * v1      ! length 3, bounds 0:2
+v3 = Vector('gaussian', 3) * m1   ! length 5, bounds 10:14
+\end{lstlisting}
+
+% ===================================================================
+% mvmult and vmmult (Vector)
+% ===================================================================
+\manentry{Pure Generic Subroutines}{mvmult, vmmult (Vector)}{Vector: mvmult, vmmult}{Zero-allocation \texttt{BLAS} subroutines for \texttt{Matrix}--\texttt{Vector} multiplication}{vec:mvmult_vmmult}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: vmmult}}}{Vector: vmmult}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mvmult(m1, v2, v3)   ! pure: v3 % v = m1 % v . v2 % v
+call vmmult(v2, m1, v3)   ! pure: v3 % v = transpose(m1 % v) . v2 % v
+\end{lstlisting}
+
+\manheading{Brief}
+Execute matrix--vector multiplication in-place into \argname{v3} (auto-allocating/resizing \argname{v3} if needed) without operator-overloading temporaries.
+
+\manheading{Description}
+Automatically allocates or reconstructs \argname{v3} whenever \texttt{v3 \% v} is not allocated or its length mismatches (\texttt{v3 \% n /= m1 \% m} for \procname{mvmult}, \texttt{v3 \% n /= m1 \% n} for \procname{vmmult}); when \argname{v3} is already allocated with matching length, it writes in-place preserving existing bounds and \texttt{name}. Delegates to \modname{matrix\_mod\_array}, passing \texttt{type = 'H'} (\texttt{zhemv}) in \procname{mvmult} when \texttt{m1 \% mtype = 'ZH'}, whereas \procname{vmmult} calls \texttt{vmmult(v2 \% v, m1 \% v, v3 \% v)} (\texttt{zgemv}). Inner-dimension mismatches (\texttt{m1 \% n /= v2 \% n} for \procname{mvmult}, \texttt{m1 \% m /= v2 \% n} for \procname{vmmult}) stop the program with an \texttt{error stop} message.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Input complex matrix.}
+  \argitem{vecb}{class(Vector), intent(in)}{Input complex vector.}
+  \argitem{vecc}{type(Vector), intent(inout)}{Destination \typename{Vector} (auto-allocated/resized if needed).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+type(Vector) :: v1, v2, v3
+
+m1 = Matrix('gaussian', 64)
+v1 = Vector('gaussian', 64); v2 = Vector(64); v3 = Vector(64)
+call mvmult(m1, v1, v2)   ! v2 = m1 * v1 without temporary allocation
+call vmmult(v1, m1, v3)   ! v3 = v1 * m1 without temporary allocation
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Procedures}
+\label{subsec:vec_procs}
+
+\mansubgroup{Random Numbers}
+
+% ===================================================================
+% random_number (Vector)
+% ===================================================================
+\manentry{Generic Subroutine}{random\_number (Vector)}{Vector: random\textunderscore number}{Overloaded uniform and Gaussian random generator for \texttt{Vector}}{vec:random_number}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call random_number(vec)          ! uniform random numbers in [0,1) + i[0,1)
+call random_number(vec, sigma)   ! Gaussian random numbers with std dev sigma
+\end{lstlisting}
+
+\manheading{Brief}
+Populates a pre-allocated \typename{Vector} with uniform or Gaussian complex random variates (passing \argname{sigma} non-optionally to select the Gaussian form).
+
+\manheading{Description}
+Calls \texttt{vector\_random\_set(vec)} or \texttt{random\_number(vec \% v, sigma=sigma)}. Returns silently if \texttt{vec \% v} is not allocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(inout)}{Pre-allocated \typename{Vector}.}
+  \argitem{sigma}{real(8)}{Target Gaussian standard deviation (non-optional in the Gaussian overload).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v
+
+call matrix_random_init
+v = Vector(10)
+call random_number(v)
+call random_number(v, sigma=1.0_8)
+\end{lstlisting}
+
+\mansubgroup{Math Functions}
+
+% ===================================================================
+% abs, sin, cos, exp, log, sqrt (Vector)
+% ===================================================================
+\manentry{Pure Generic Functions}{abs, sin, cos, exp, log, sqrt (Vector)}{Vector: abs, sin, cos, exp, log, sqrt}{Element-wise mathematical functions on \texttt{Vector}}{vec:math_funcs}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: sin}}}{Vector: sin}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: cos}}}{Vector: cos}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: exp}}}{Vector: exp}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: log}}}{Vector: log}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: sqrt}}}{Vector: sqrt}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u1 = abs(v1)                                       ! returns type(DVector)
+v2 = sin(v1);  v2 = cos(v1);  v2 = exp(v1)         ! returns type(Vector)
+v2 = log(v1);  v2 = sqrt(v1)                       ! returns type(Vector)
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate $|v_i|, \sin v_i, \cos v_i, \e{v_i}, \ln v_i, \sqrt{v_i}$ element-wise on \argname{v1}, preserving \texttt{n, is, ie, name}.
+
+\manheading{Description}
+All six functions are \texttt{pure}. \procname{abs(v1)} returns a \typename{type(DVector)} with \texttt{u1 \% v = abs(v1 \% v)}; the remaining five functions return a \typename{type(Vector)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(Vector), intent(in)}{Input complex vector.}
+  \argitem{vecb}{type(DVector) or type(Vector), return value}{Element-wise result vector.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector)  :: v1, v2
+type(DVector) :: mags
+
+v1   = Vector('gaussian', 8)
+mags = abs(v1)
+v2   = exp(v1) + sqrt(v1)
+\end{lstlisting}
+
+\mansubgroup{Vector and Misc Procedures}
+
+% ===================================================================
+% dot_product, sort, norm (Vector)
+% ===================================================================
+\manentry{Generic Functions}{dot\_product, sort, norm (Vector)}{Vector: dot\textunderscore product, sort, norm}{Inner product, Quicksort ordering, and normalized $L_1$ norm for \texttt{Vector}}{vec:dot_sort_norm}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: sort}}}{Vector: sort}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: norm}}}{Vector: norm}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z  = dot_product(v1, v2)     ! pure: sum( conjg(v1 % v) * v2 % v )
+v2 = sort(v1, [by])          ! Quicksort; by='MF','MR','RF','RR','IF','IR'
+r  = norm(v1)                ! pure: sum( abs(v1 % v) ) / v1 % n
+\end{lstlisting}
+
+\manheading{Brief}
+Compute the Hermitian inner product $\langle v_1, v_2 \rangle$, sort complex vector elements, and evaluate the mean element modulus.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{dot\_product(v1, v2)} (\texttt{pure}): Calls Fortran intrinsic \texttt{dot\_product(v1 \% v, v2 \% v)}, computing $\sum_i (v_1)_i^* (v_2)_i$ as a \typename{complex(8)} scalar. Vectors of different length abort the program.
+  \item \procname{sort(v1, [by])}: Copies \argname{v1} to \argname{v2} (preserving metadata) and sets \texttt{v2 \% v = sort(v1 \% v, by=by)} via \modname{matrix\_mod\_array}. The two-character code \argname{by} selects the key (\texttt{'M'} modulus, \texttt{'R'} real part, \texttt{'I'} imaginary part) and direction (\texttt{'F'} ascending, \texttt{'R'} descending), defaulting to \texttt{'MF'}.
+  \item \procname{norm(v1)} (\texttt{pure}): Returns $\frac{1}{N} \sum_{i=1}^{N} |v_i|$ as a \typename{real(8)} scalar.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{veca, vecb}{class(Vector), intent(in)}{Input complex vector(s).}
+  \argitem{by}{character(*), optional, intent(in)}{Sort order code: \texttt{'MF'} (default), \texttt{'MR'}, \texttt{'RF'}, \texttt{'RR'}, \texttt{'IF'}, or \texttt{'IR'}.}
+  \argitem{result}{complex(8), type(Vector), or real(8)}{Inner product, sorted vector, or normalized $L_1$ norm.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Vector) :: v1, v2
+complex(8)   :: ip
+real(8)      :: nrm
+
+v1  = Vector('gaussian', 8)
+v2  = sort(v1, by='RF')       ! sort ascending by real part
+ip  = dot_product(v1, v2)
+nrm = norm(v1)
+\end{lstlisting}
+
+% ===================================================================
+% mcmplx, metadata_copy, isNaN (Vector)
+% ===================================================================
+\manentry{Generic Procedures}{mcmplx, metadata\_copy, isNaN (Vector)}{Vector: mcmplx, metadata\textunderscore copy, isNaN}{Complex vector construction, metadata copy, and \texttt{NaN} detection}{vec:misc}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: metadata\textunderscore copy}}}{Vector: metadata\textunderscore copy}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Vector: isNaN}}}{Vector: isNaN}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v1 = mcmplx(u1, u2)            ! Vector from two conformable DVectors
+call metadata_copy(src, dst)   ! pure: copies n, is, ie, name (Vector/DVector)
+has_nan = isNaN(v1)            ! .true. if any entry in v1 % v is NaN
+\end{lstlisting}
+
+\manheading{Brief}
+Construct a complex \typename{Vector} from two real \typename{DVector} objects (\procname{mcmplx}), copy vector metadata without allocating data (\procname{metadata\_copy}), or test for \texttt{NaN} (\procname{isNaN}).
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{mcmplx(u1, u2)}: Checks that \texttt{u1 \% n == u2 \% n} (aborting via \texttt{matrix\_error} otherwise), copies metadata \texttt{(n, is, ie, name)} from \argname{u1}, and sets \texttt{v1 \% v = CMPLX(u1 \% v, u2 \% v, kind=8)}. Note the module procedure name is \procname{mcmplx}, \emph{not} Fortran's intrinsic \texttt{cmplx}.
+  \item \procname{metadata\_copy(src, dst)} (\texttt{pure}): Works across any combination of \typename{Vector} and \typename{DVector}, copying \texttt{n, is, ie, name} without allocating or modifying \texttt{dst \% v}.
+  \item \procname{isNaN(v1)}: Returns \texttt{.true.} if any entry of \texttt{v1 \% v} has a \texttt{NaN} real or imaginary part. See Section~\ref{mod:NaN} for generating \texttt{NaN}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{u1, u2}{class(DVector), intent(in)}{Conformable real vectors supplying real and imaginary parts to \procname{mcmplx}.}
+  \argitem{src, dst}{class(Vector) or class(DVector)}{Source (\texttt{intent(in)}) and destination (\texttt{intent(inout)}) for \procname{metadata\_copy}.}
+  \argitem{vec}{class(Vector), intent(in)}{Vector inspected by \procname{isNaN}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1, u2
+type(Vector)  :: v1, v2
+
+u1 = DVector('gaussian', 6, name='z')
+u2 = DVector('gaussian', 6)
+v1 = mcmplx(u1, u2)
+call metadata_copy(v1, v2)
+allocate(v2 % v(v2 % is : v2 % ie))
+v2 = NaN()
+print *, 'v2 has NaN?', isNaN(v2)
+\end{lstlisting}

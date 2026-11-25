@@ -1,0 +1,237 @@
+% ===================================================================
+% Section 1: Usage, Compiling and Linking, Download, Utilities
+% ===================================================================
+\section{Usage}
+\label{sec:usage}
+
+The \modname{matrix\_mod\_matrix} module (part of the \texttt{Matrix} library) provides an object-oriented, high-level modern Fortran interface for linear algebra calculations using encapsulated matrix and vector derived types. Built on top of \modname{matrix\_mod\_array} (whose standalone array API is exported via \modname{array\_mod}), \modname{matrix\_mod\_matrix} wraps performance-critical \texttt{BLAS}, \texttt{LAPACK}, and \texttt{PFAPACK} routines behind intuitive type constructors, type-bound methods, and overloaded mathematical operators.
+
+Unlike \modname{array\_mod}, which operates directly on raw Fortran arrays, \modname{matrix\_mod\_matrix} manages four public derived types that store both numerical values and descriptive metadata:
+\begin{itemize}
+  \item \typename{type(Matrix)} and \typename{type(DMatrix)}: Double-precision complex (\typename{complex(8)}) and real (\typename{real(8)}) matrices carrying dimensions $(m,n)$, arbitrary lower/upper index bounds (\texttt{is:ie}, \texttt{js:je}), a symmetry flag (\texttt{mtype}: \texttt{'ZG'}/\texttt{'ZH'} or \texttt{'DG'}/\texttt{'DS'}), and an optional label (\texttt{name}).
+  \item \typename{type(Vector)} and \typename{type(DVector)}: Double-precision complex (\typename{complex(8)}) and real (\typename{real(8)}) vectors carrying length $n$, arbitrary index bounds (\texttt{is:ie}), and an optional label (\texttt{name}).
+  \item \textbf{Operator Overloading \& Zero-Allocation Subroutines}: Full support for assignment (\procname{=}), addition (\procname{+}), subtraction (\procname{-}), scalar/matrix/vector multiplication (\procname{*}), scalar division (\procname{/}), and element-wise exponentiation (\procname{**}), alongside low-overhead \texttt{BLAS} subroutines (\procname{mmmult}, \procname{mvmult}, \procname{vmmult}).
+  \item \textbf{Symmetry-Aware Linear Algebra \& I/O}: Constructors, uniform/Gaussian random generators, symmetry projections and tests, traces, norms, inverses, determinants (\procname{determinant}, \procname{lndet}), Pfaffians (\procname{Pfaffian}, \procname{lnPfaffian}), eigensolvers (\procname{eigenvalues}, \procname{eigenvectors}), element-wise math intrinsics, and formatted terminal/file/Mathematica I/O.
+\end{itemize}
+
+\begin{notebox}[Ergonomics vs.\ Raw Array Performance]
+The derived types \typename{Matrix}, \typename{DMatrix}, \typename{Vector}, and \typename{DVector} are designed primarily for expressive, readable scientific code and educational use. Operator overloading simplifies matrix algebra at the cost of temporary allocations for small arrays ($N \lesssim 200$--$500$). For maximum throughput in compute-intensive inner loops, use the subroutine interfaces (\procname{mmmult}, \procname{mvmult}, \procname{vmmult}) or the raw array module \modname{array\_mod} (see Section~\ref{sec:performance} for detailed benchmarks).
+\end{notebox}
+
+A minimal motivating program demonstrating Gaussian random matrix/vector construction, overloaded matrix--vector multiplication, eigenvalue computation, and formatted output is shown below:
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+program hello_world
+  use :: matrix_mod_matrix             ! The name of the module
+  implicit none
+  type(Matrix) :: m
+  type(Vector) :: v1, v2
+  integer      :: n
+
+  call matrix_random_init              ! seed PRNG from /dev/urandom
+  f_mout = 6                           ! unit for the module messages
+
+  n  = 4
+  m  = Matrix('g', n)                  ! Gaussian random n x n matrix
+  v1 = Vector('g', n)                  ! Gaussian random n-vector
+
+  v2 = m * v1                          ! matrix-vector multiplication
+  v2 = eigenvalues(m)                  ! compute eigenvalues of m
+  call v2 % print(f_mout)              ! print the eigenvalues
+end program hello_world
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Compiling and Linking}
+\label{subsec:compiling}
+
+To use \modname{matrix\_mod\_matrix}, you must first compile the \texttt{Matrix} library archive (\filename{libMatrix.a}) and its Fortran module description files (\filename{*.mod}), and then link your program against \texttt{libMatrix}, \texttt{LAPACK}, and \texttt{BLAS}.
+
+If your program file \filename{hello.f90} is placed inside \filename{Software/Tools/Matrix/}, build the library and compile using \texttt{gfortran} with:
+\lstset{language=bash}
+\begin{lstlisting}
+make gnu
+gfortran -I. hello.f90 -L. -lMatrix -llapack -lblas -o hello
+\end{lstlisting}
+Here \lcodeb{make gnu} builds the bundled \texttt{PFAPACK} library first, compiles all modules (including \filename{matrix\_mod\_common.f90}, \filename{matrix\_mod\_array.f90}, and \filename{matrix\_mod\_matrix.f90}), archives everything into \filename{libMatrix.a}, and copies the artifacts into \filename{lib/gnu/}. Once \texttt{PFAPACK} has already been compiled, running \lcodeb{make lib} suffices to recompile module objects and rebuild \filename{libMatrix.a}.
+
+When compiling a program outside the library tree, pass the paths to the compiled \filename{.mod} and \filename{libMatrix.a} directory (e.g.\ \filename{/path/to/Matrix/}):
+\lstset{language=bash}
+\begin{lstlisting}
+gfortran -I/path/to/Matrix hello.f90 -L/path/to/Matrix -lMatrix \
+         -llapack -lblas -o hello
+\end{lstlisting}
+
+\begin{notebox}[Makefile Targets and Compiler Options]
+The included \filename{Makefile} provides tuned configurations for GNU, Intel, AMD, and NVIDIA toolchains:
+\begin{itemize}
+  \item \textbf{GNU Fortran (\texttt{gfortran})}: Run \lcodeb{make gnu}. Default variables:
+\lstset{language=bash}
+\begin{lstlisting}
+FC     = gfortran
+FFLAGS = -O3 -mtune=native -funroll-loops -fopenmp -pthread
+LIBS   = -llapack -lblas
+\end{lstlisting}
+  If \texttt{libMatrix.a} was compiled with OpenMP (\texttt{-fopenmp}), pass \texttt{-fopenmp} when linking executables and set \lcodeb{export OMP_NUM_THREADS=8} at runtime as needed.
+  \item \textbf{Intel Fortran (\texttt{ifx} / \texttt{ifort} with MKL)}: Run \lcodeb{make intel} (\texttt{-O3 -xHost -qopenmp -qmkl=parallel}), saving artifacts to \filename{lib/intel/}.
+  \item \textbf{HPC Cluster Targets}: Targets are included for AMD AOCC/\texttt{flang} with AOCL (\lcodeb{make aris}), GNU with Intel MKL (\lcodeb{make arismkl}), and NVIDIA HPC SDK \texttt{nvfortran} (\lcodeb{make nvaris}, \lcodeb{make icarus}, \lcodeb{make icarusnogpu}).
+  \item \textbf{Debug Builds}: Run \lcodeb{make debug} (or \lcodeb{make d}) to compile with \texttt{FFLAGS=-g}.
+\end{itemize}
+\end{notebox}
+
+% -------------------------------------------------------------------
+\subsection{Download}
+\label{subsec:download}
+
+The complete source code archive of the \texttt{Matrix} library can be downloaded from:
+\begin{center}
+  \url{https://physics.ntua.gr/konstant/PUB/Matrix.tgz}
+\end{center}
+The official GitHub repository is maintained at:
+\begin{center}
+  \url{https://github.com/KNAnagnostop/FortranMatrix}
+\end{center}
+
+% -------------------------------------------------------------------
+\subsection{Module-Wide Error Handling and \texorpdfstring{\texttt{mtype}}{mtype} Conventions}
+\label{subsec:error_mtype}
+
+Module \modname{matrix\_mod\_matrix} distinguishes two kinds of failure.
+
+\textbf{Shape errors abort.} A wrong shape is a programming error: it depends on the code, not on the data. The program stops at once with a non-zero exit status and a message naming the procedure where it happened. Ordinary procedures call \texttt{matrix\_error}, which prints a banner; \texttt{pure} procedures use \texttt{error stop '<procedure>: ...'}, which is allowed in \texttt{pure} code since Fortran~2018. Shape errors are:
+\begin{itemize}
+  \item \procname{+} and \procname{-} with non-conformable \typename{Matrix}, \typename{DMatrix}, or array operands;
+  \item \procname{*} (matrix--matrix and matrix--vector), \procname{mmmult}, \procname{mvmult}, and \procname{vmmult} when the inner dimensions differ;
+  \item \typename{Vector} and \typename{DVector} \procname{+}, \procname{-}, \procname{dot\_product}, and array or vector assignment with a size mismatch;
+  \item \procname{eigenvalues}, \procname{eigenvectors}, \procname{hermitian\_set}, \procname{symmetric\_set}, and \procname{antisymmetric\_set} on a non-square matrix;
+  \item scalar assignment to an unconstructed \typename{Matrix}, \typename{DMatrix}, \typename{Vector}, or \typename{DVector}.
+\end{itemize}
+
+\textbf{Data-dependent numerical failures return \procname{NaN}.} These can occur in a correct program, for example for one configuration of a Monte Carlo simulation, so the program continues and can test the result with \procname{isNaN}: a singular matrix in \procname{inverse}, and a \texttt{LAPACK} convergence failure in \procname{eigenvalues} and \procname{eigenvectors}.
+
+{\sloppy The functions \procname{trace}, \procname{trace2}, \procname{trace2c}, \procname{traceless}, \procname{isHermitian}, \procname{isSymmetric}, \procname{isAntiSymmetric}, \procname{inverse}, \procname{determinant}, \procname{lndet}, \procname{Pfaffian}, and \procname{lnPfaffian} pass their argument directly to \modname{matrix\_mod\_array}, and therefore still return \procname{NaN} for a non-square matrix, following the \modname{array\_mod} convention.\par}
+
+\textbf{\texttt{mtype} semantics.} \texttt{'ZH'} (\typename{Matrix}) and \texttt{'DS'} (\typename{DMatrix}) select the Hermitian or symmetric \texttt{BLAS} and \texttt{LAPACK} kernels (\texttt{zhemm}, \texttt{zhemv}, \texttt{zheev} and \texttt{dsymm}, \texttt{dsymv}, \texttt{dsyev}), which read only the upper triangle of the stored array. Operations that may destroy hermiticity or symmetry reset \texttt{mtype} to \texttt{'ZG'} or \texttt{'DG'}; call \procname{hermitian\_set} or \procname{symmetric\_set} to re-tag a matrix that is known to be Hermitian or symmetric.
+
+% -------------------------------------------------------------------
+\subsection{Module-Wide Public Variable and Utilities}
+\label{subsec:mod_utilities}
+
+Before introducing the four derived types in detail, this subsection documents the module-wide public variable \procname{f\_mout} and the two standalone utilities \procname{matrix\_random\_init} and \procname{NaN}, which are shared across all classes of \modname{matrix\_mod\_matrix}.
+
+% ===================================================================
+% f_mout
+% ===================================================================
+\manentry{Public Module Variable}{f\_mout}{f\textunderscore mout}{Default Fortran logical I/O unit used for module output, saving, and messages}{mod:f_mout}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+integer :: f_mout = stdout   ! output_unit from iso_fortran_env (typically 6)
+\end{lstlisting}
+
+\manheading{Brief}
+Specifies the default Fortran I/O unit number for output produced by \procname{\% print}, \procname{\% save}, and \procname{matrix\_random\_init}.
+
+\manheading{Description}
+Declared in \modname{matrix\_mod\_common} and re-exported publicly by \modname{matrix\_mod\_matrix}, \procname{f\_mout} is initialized to \texttt{stdout} (\texttt{output\_unit} from \texttt{iso\_fortran\_env}, usually unit \texttt{6}). Whenever the optional \argname{unit} dummy argument is omitted in a call to \procname{MAT \% print}, \procname{MAT \% save}, \procname{vec \% print}, or \procname{vec \% save}, output is directed to \procname{f\_mout}. Users may reassign \procname{f\_mout} to an open file unit globally rather than passing \argname{unit=...} to every call. Note that the companion input unit \texttt{f\_minput} (initialized to \texttt{stdin}) is \emph{not} exported publicly by \modname{matrix\_mod\_matrix}, so use \texttt{call obj \% read(unit=un)} to read from an explicit file unit.
+
+\manheading{Specification}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{f\_mout}{integer, public module variable, saved}{Default output unit number (initial value: \texttt{stdout} / \texttt{iso\_fortran\_env:output\_unit}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+m = Matrix('gaussian', 4, name='G')
+call m % print()        ! writes to default stdout (f_mout = 6)
+
+open(newunit=f_mout, file='out.dat', status='replace')
+call m % print()        ! now writes to out.dat
+close(f_mout)
+f_mout = 6              ! restore stdout
+\end{lstlisting}
+
+% ===================================================================
+% matrix_random_init
+% ===================================================================
+\manentry{Subroutine}{matrix\_random\_init}{matrix\textunderscore random\textunderscore init}{Seeds Fortran's intrinsic PRNG from \texttt{/dev/urandom} with a portable fallback}{mod:matrix_random_init}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call matrix_random_init()
+\end{lstlisting}
+
+\manheading{Brief}
+Initializes Fortran's pseudo-random number generator (\texttt{random\_seed}) using high-entropy bytes from \filename{/dev/urandom}, or falls back gracefully to \lcodef{call random_seed()}.
+
+\manheading{Description}
+\procname{matrix\_random\_init} queries the processor seed array size with \lcodef{call random_seed(size=nseeds)}, opens \filename{/dev/urandom} as an unformatted stream file, and reads \texttt{nseeds} integers. To ensure valid positive non-degenerate seeds across compilers, it clears the sign bit with \lcodef{iand(seeds, huge(seeds))} and forces the least-significant bit of \texttt{seeds(1)} to $1$ with \lcodef{ior(seeds(1), 1)} before calling \lcodef{call random_seed(put=seeds)}. An informational status message is written to \procname{f\_mout}.
+
+If \filename{/dev/urandom} is unavailable or unreadable (for example, in restricted containers or on Windows), \procname{matrix\_random\_init} prints a warning to \procname{f\_mout} and falls back cleanly to \lcodef{call random_seed()} without aborting.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{(none)}{}{This subroutine takes no arguments.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+call matrix_random_init
+m = Matrix('gaussian', 8, sigma=1.0_8)
+\end{lstlisting}
+
+% ===================================================================
+% NaN
+% ===================================================================
+\manentry{Pure Generic Function}{NaN}{NaN}{Returns an IEEE quiet Not-a-Number scalar for real or complex assignments}{mod:NaN}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = NaN()    ! returns complex(8) with both Re and Im set to IEEE quiet NaN
+z = NaN(z0)  ! returns complex(8) with both Re and Im set to IEEE quiet NaN
+r = NaN(r0)  ! returns real(8) IEEE quiet NaN
+\end{lstlisting}
+
+\manheading{Brief}
+Produces a double-precision real or complex IEEE quiet \texttt{NaN} (\texttt{IEEE\_QUIET\_NAN}) via Fortran's intrinsic \texttt{ieee\_arithmetic} module.
+
+\manheading{Description}
+\procname{NaN} provides three pure overloads exported from \modname{matrix\_mod\_common}:
+\begin{itemize}
+  \item \lcodef{NaN()} (no arguments) and \lcodef{NaN(z)} (\typename{complex(8)} argument) return a \typename{complex(8)} value \texttt{CMPLX(qnan, qnan, kind=dp)}, setting \emph{both} real and imaginary parts to IEEE quiet \texttt{NaN}.
+  \item \lcodef{NaN(r)} (\typename{real(8)} argument) returns a \typename{real(8)} IEEE quiet \texttt{NaN}. Note that assigning \cbox{m \% v(i,j) = NaN(r)} to a complex entry sets its real part to \texttt{NaN} and its imaginary part to \texttt{0.0\_8} (and still causes \procname{isNaN} to return \texttt{.true.}).
+\end{itemize}
+When assigning \texttt{m \% v = NaN()} or \texttt{v \% v = NaN()} to an entire array component, Fortran broadcasts the scalar \texttt{NaN} across all elements. Always use \procname{isNaN} to test for \texttt{NaN}, never equality (\texttt{==} / \texttt{/=}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{z / r}{complex(8) or real(8), scalar, intent(in), optional}{Type-selecting mold argument (when omitted, returns \typename{complex(8)}).}
+  \argitem{result}{complex(8) or real(8), scalar, return value}{IEEE quiet \texttt{NaN} value matching the selected precision and type.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1
+type(DMatrix) :: d1
+real(8)       :: r = 0.0_8
+
+m1 = Matrix(4)
+d1 = DMatrix(4)
+m1 % v      = NaN()       ! set both Re and Im of all entries to NaN
+m1 % v(1,1) = NaN(r)      ! set Re part of entry (1,1) to NaN
+d1 % v      = NaN(r)      ! set all real entries of d1 to NaN
+if (isNaN(m1)) print *, 'm1 contains NaN'
+\end{lstlisting}

@@ -1,0 +1,73 @@
+\contentsline {section}{\numberline {1}Usage}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Compiling and Linking}{5}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Download}{5}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Hello World!}{6}{subsection.1.3}%
+\contentsline {section}{\numberline {2}Basic Matrix Operations}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Trace, symmetries, sort, norm}{7}{subsection.2.1}%
+\contentsline {subsubsection}{\texttt {\textbf {trace}} \textnormal {\footnotesize --- Computes the trace $\ensuremath {{\rm Tr\,}}C = \DOTSB \sum@ \slimits@ _i C_{ii}$ of a real or complex matrix}}{7}{section*.2}%
+\contentsline {subsubsection}{\texttt {\textbf {trace2}} \textnormal {\footnotesize --- Computes the quadratic trace $\ensuremath {{\rm Tr\,}}(C^2)$ or bilinear trace $\ensuremath {{\rm Tr\,}}(C_1 C_2)$}}{8}{section*.3}%
+\contentsline {subsubsection}{\texttt {\textbf {trace2c}} \textnormal {\footnotesize --- Computes the connected quadratic trace $\ensuremath {{\rm Tr\,}}(\tilde {C}^2)$ of the traceless part $\tilde {C} = C - \frac {1}{N}(\ensuremath {{\rm Tr\,}}C) I$}}{9}{section*.4}%
+\contentsline {subsubsection}{\texttt {\textbf {traceless}} \textnormal {\footnotesize --- Returns the traceless part $C - \frac {1}{N}(\ensuremath {{\rm Tr\,}}C) I$ of a square matrix}}{10}{section*.5}%
+\contentsline {subsubsection}{\texttt {\textbf {traceless\textunderscore set}} \textnormal {\footnotesize --- Makes a square matrix traceless in-place}}{11}{section*.6}%
+\contentsline {subsubsection}{\texttt {\textbf {hermitian\textunderscore set}} \textnormal {\footnotesize --- Projects or symmetrizes a complex matrix into a Hermitian matrix in-place}}{12}{section*.7}%
+\contentsline {subsubsection}{\texttt {\textbf {symmetric\textunderscore set}} \textnormal {\footnotesize --- Projects or symmetrizes a real or complex matrix into a symmetric matrix in-place}}{13}{section*.8}%
+\contentsline {subsubsection}{\texttt {\textbf {antisymmetric\textunderscore set}} \textnormal {\footnotesize --- Projects or skew-symmetrizes a real or complex matrix into an antisymmetric matrix in-place}}{14}{section*.9}%
+\contentsline {subsubsection}{\texttt {\textbf {hermitian}} \textnormal {\footnotesize --- Returns the Hermitian conjugate $C^\dagger $ of a complex matrix}}{15}{section*.10}%
+\contentsline {subsubsection}{\texttt {\textbf {symmetric}} \textnormal {\footnotesize --- Returns the transpose $C^T$ of a real or complex matrix}}{15}{section*.11}%
+\contentsline {subsubsection}{\texttt {\textbf {antisymmetric}} \textnormal {\footnotesize --- Returns the negative transpose $-C^T$ of a real or complex matrix}}{16}{section*.12}%
+\contentsline {subsubsection}{\texttt {\textbf {isHermitian}} \textnormal {\footnotesize --- Measures the deviation $\ensuremath {\left \lVert C - C^\dagger \right \rVert }$ of a complex matrix from Hermiticity}}{17}{section*.13}%
+\contentsline {subsubsection}{\texttt {\textbf {isSymmetric}} \textnormal {\footnotesize --- Measures the deviation $\ensuremath {\left \lVert C - C^T \right \rVert }$ of a real or complex matrix from symmetry}}{17}{section*.14}%
+\contentsline {subsubsection}{\texttt {\textbf {isAntisymmetric}} \textnormal {\footnotesize --- Measures the deviation $\ensuremath {\left \lVert C + C^T \right \rVert }$ of a real or complex matrix from antisymmetry}}{18}{section*.15}%
+\contentsline {subsubsection}{\texttt {\textbf {diagonal}} \textnormal {\footnotesize --- Extracts the diagonal of a matrix as a vector, or constructs a diagonal matrix from a vector or scalar}}{19}{section*.16}%
+\contentsline {subsubsection}{\texttt {\textbf {diagonalMatrix}} \textnormal {\footnotesize --- Constructs a diagonal matrix from the diagonal elements of an existing matrix}}{20}{section*.17}%
+\contentsline {subsubsection}{\texttt {\textbf {identitymatrix, cidentitymatrix, didentitymatrix}} \textnormal {\footnotesize --- Construct $n\times n$ complex or real identity matrices $I_n$}}{21}{section*.18}%
+\contentsline {subsubsection}{\texttt {\textbf {cidentitymatrix}} \textnormal {\footnotesize --- Complex $n\times n$ identity matrix}}{21}{section*.18}%
+\contentsline {subsubsection}{\texttt {\textbf {didentitymatrix}} \textnormal {\footnotesize --- Real $n\times n$ identity matrix}}{21}{section*.18}%
+\contentsline {subsubsection}{\texttt {\textbf {paulimatrix}} \textnormal {\footnotesize --- Returns the $2\times 2$ complex Pauli matrices $\sigma _0, \sigma _1, \sigma _2, \sigma _3$}}{22}{section*.19}%
+\contentsline {subsubsection}{\texttt {\textbf {sort}} \textnormal {\footnotesize --- Sorts a 1D real or complex array using Quicksort with optional permutation index tracking}}{23}{section*.20}%
+\contentsline {subsubsection}{\texttt {\textbf {random\textunderscore sort}} \textnormal {\footnotesize --- Randomly shuffles a 1D array, character string, or integer range using the Fisher--Yates algorithm}}{25}{section*.21}%
+\contentsline {subsubsection}{\texttt {\textbf {random\textunderscore sort\textunderscore array}} \textnormal {\footnotesize --- Randomly shuffles a 1D integer, real, or complex array in-place using the Fisher--Yates algorithm}}{26}{section*.22}%
+\contentsline {subsubsection}{\texttt {\textbf {norm}} \textnormal {\footnotesize --- Computes the normalized $L_1$ norm (mean absolute value of elements) of a rank-1, rank-2, or rank-3 array}}{27}{section*.23}%
+\contentsline {subsection}{\numberline {2.2}Matrix Multiplication}{28}{subsection.2.2}%
+\contentsline {subsubsection}{\texttt {\textbf {operator(.mm.)}} \textnormal {\footnotesize --- Infix operator for BLAS-accelerated matrix--matrix, matrix--vector, and vector--matrix multiplication}}{28}{section*.24}%
+\contentsline {subsubsection}{\texttt {\textbf {lmatmul}} \textnormal {\footnotesize --- BLAS-backed matrix--matrix, rank-$k$, and matrix--vector multiplication function}}{30}{section*.25}%
+\contentsline {subsubsection}{\texttt {\textbf {mmmult}} \textnormal {\footnotesize --- Zero-allocation BLAS subroutine for matrix--matrix and rank-$k$ multiplication}}{32}{section*.26}%
+\contentsline {subsubsection}{\texttt {\textbf {mvmult}} \textnormal {\footnotesize --- Zero-allocation BLAS subroutine for matrix--vector multiplication}}{34}{section*.27}%
+\contentsline {subsubsection}{\texttt {\textbf {vmmult}} \textnormal {\footnotesize --- Zero-allocation BLAS subroutine for left vector--matrix multiplication}}{35}{section*.28}%
+\contentsline {subsection}{\numberline {2.3}Linear Algebra}{36}{subsection.2.3}%
+\contentsline {subsubsection}{\numberline {2.3.1}Inverse, determinant, Pfaffian}{36}{subsubsection.2.3.1}%
+\contentsline {subsubsection}{\texttt {\textbf {inverse}} \textnormal {\footnotesize --- Computes the matrix inverse $C^{-1}$ of a real or complex square matrix via LU factorization}}{36}{section*.29}%
+\contentsline {subsubsection}{\texttt {\textbf {determinant}} \textnormal {\footnotesize --- Computes the determinant $\det C$ of a real or complex square matrix via LU factorization}}{37}{section*.30}%
+\contentsline {subsubsection}{\texttt {\textbf {lndet}} \textnormal {\footnotesize --- Computes the logarithm of the modulus and the phase/sign of $\det C$ for large matrices}}{38}{section*.31}%
+\contentsline {subsubsection}{\texttt {\textbf {pfaffian}} \textnormal {\footnotesize --- Computes the Pfaffian $\ensuremath {\text {Pf}\,}C$ of a complex antisymmetric matrix}}{40}{section*.32}%
+\contentsline {subsubsection}{\texttt {\textbf {lnPfaffian}} \textnormal {\footnotesize --- Computes the logarithm of the modulus and the complex phase of $\ensuremath {\text {Pf}\,}C$ for large antisymmetric matrices}}{41}{section*.33}%
+\contentsline {subsubsection}{\numberline {2.3.2}Eigenvalues and eigenvectors:}{42}{subsubsection.2.3.2}%
+\contentsline {subsubsection}{\texttt {\textbf {eigenvalues}} \textnormal {\footnotesize --- Computes the eigenvalues of a general, Hermitian, or real symmetric square matrix}}{42}{section*.34}%
+\contentsline {subsubsection}{\texttt {\textbf {eigenvectors}} \textnormal {\footnotesize --- Computes both the eigenvalues and normalized right eigenvectors of a square matrix}}{44}{section*.35}%
+\contentsline {subsection}{\numberline {2.4}Tensor Products --- Pauli Matrices}{46}{subsection.2.4}%
+\contentsline {subsubsection}{\texttt {\textbf {tensorprod}} \textnormal {\footnotesize --- Computes the Kronecker tensor product $X_1 \otimes X_2 \otimes \cdots $ of 2 to 6 matrices or two 1D vectors}}{46}{section*.36}%
+\contentsline {subsubsection}{\texttt {\textbf {vec2col}} \textnormal {\footnotesize --- Reshapes a 1D vector of length $N_p$ into an $N_p \times 1$ rank-2 column matrix}}{48}{section*.37}%
+\contentsline {subsubsection}{\texttt {\textbf {vec2row}} \textnormal {\footnotesize --- Reshapes a 1D vector of length $N_n$ into a $1 \times N_n$ rank-2 row matrix}}{48}{section*.38}%
+\contentsline {subsubsection}{\texttt {\textbf {vectorize}} \textnormal {\footnotesize --- Flattens a rank-2 matrix into a 1D vector by stacking its columns in column-major order}}{49}{section*.39}%
+\contentsline {subsection}{\numberline {2.5}Random Numbers}{50}{subsection.2.5}%
+\contentsline {subsubsection}{\texttt {\textbf {random\textunderscore number}} \textnormal {\footnotesize --- Overloaded uniform and Box--Muller Gaussian random number generator for real and complex scalars and arrays}}{50}{section*.40}%
+\contentsline {subsubsection}{\texttt {\textbf {matrix\textunderscore random\textunderscore init}} \textnormal {\footnotesize --- Seeds the Fortran intrinsic random number generator from \texttt {/dev/urandom}}}{51}{section*.41}%
+\contentsline {subsection}{\numberline {2.6}Utilities}{52}{subsection.2.6}%
+\contentsline {subsubsection}{\numberline {2.6.1}Saving and printing}{52}{subsubsection.2.6.1}%
+\contentsline {subsubsection}{\texttt {\textbf {save}} \textnormal {\footnotesize --- Writes a rank-1, rank-2, or rank-3 real or complex array to an output unit in plain text format}}{52}{section*.42}%
+\contentsline {subsubsection}{\texttt {\textbf {f\_mout}} \textnormal {\footnotesize --- Default output unit variable (\texttt {stdout})}}{52}{section*.42}%
+\contentsline {subsubsection}{\texttt {\textbf {read}} \textnormal {\footnotesize --- Reads a rank-1, rank-2, or rank-3 real or complex array from an input unit}}{53}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {f\_minput}} \textnormal {\footnotesize --- Default input unit variable (\texttt {stdin})}}{53}{section*.43}%
+\contentsline {subsubsection}{\numberline {2.6.2}Printing arrays}{54}{subsubsection.2.6.2}%
+\contentsline {subsubsection}{\texttt {\textbf {print}} \textnormal {\footnotesize --- Prints an allocatable 1D or 2D real or complex array in Default, Mathematica, Info, or Gamma format}}{54}{section*.44}%
+\contentsline {subsubsection}{\texttt {\textbf {printna}} \textnormal {\footnotesize --- Prints a non-allocatable (static or assumed-shape) 1D or 2D real or complex array}}{56}{section*.45}%
+\contentsline {subsubsection}{\numberline {2.6.3}NaN stuff}{57}{subsubsection.2.6.3}%
+\contentsline {subsubsection}{\texttt {\textbf {NaN}} \textnormal {\footnotesize --- Returns an IEEE quiet NaN (Not-a-Number) value for real or complex variables and arrays}}{57}{section*.46}%
+\contentsline {subsubsection}{\texttt {\textbf {isNaN}} \textnormal {\footnotesize --- Tests whether a real or complex scalar or rank-1, rank-2, or rank-3 array contains any NaN value}}{58}{section*.47}%
+\contentsline {subsubsection}{\numberline {2.6.4}Timing your program}{59}{subsubsection.2.6.4}%
+\contentsline {subsubsection}{\texttt {\textbf {timer\textunderscore mod\textunderscore init}} \textnormal {\footnotesize --- Initializes the timer\_mod CPU and wall-clock timers and prints a header banner}}{59}{section*.48}%
+\contentsline {subsubsection}{\texttt {\textbf {timer\textunderscore mod\textunderscore now}} \textnormal {\footnotesize --- Updates the public CPU time, wall-clock time, counter, and timestamp variables without printing}}{60}{section*.49}%
+\contentsline {subsubsection}{\texttt {\textbf {timer\_count, timer\_cputot, timer\_cpudel, timer\_wtimetot, timer\_wtimedel, timer\_date}} \textnormal {\footnotesize --- Public timing variables}}{60}{section*.49}%
+\contentsline {subsubsection}{\texttt {\textbf {timer\textunderscore mod\textunderscore print}} \textnormal {\footnotesize --- Updates all timing variables via \texttt {timer\_mod\_now} and prints a formatted timing report line}}{61}{section*.50}%
+\contentsline {section}{\numberline {3}File Structure}{62}{section.3}%
+\contentsline {section}{\numberline {4}Performance}{63}{section.4}%

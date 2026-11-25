@@ -1,0 +1,114 @@
+\documentclass[a4paper,11pt]{article}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[a4paper, total={6.5in, 9.8in}]{geometry}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{makeidx}
+\usepackage{fontspec}
+\usepackage{xunicode}
+\usepackage{xltxtra}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{morefloats}
+\usepackage[yyyymmdd]{datetime}
+\usepackage{appendix}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage{hyperref}
+\hypersetup{
+  pdftitle={Matrix Module Documentation (matrix\textunderscore mod\textunderscore matrix)},
+  pdfauthor={Konstantinos N. Anagnostopoulos},
+  colorlinks=true,
+  linkcolor=blue!70!black,
+  filecolor=magenta,
+  citecolor=blue!70!black,
+  anchorcolor=blue!70!black,
+  urlcolor=blue!70!black,
+  bookmarksopen=true,
+  bookmarksdepth=3
+}
+\urlstyle{same}
+\setlength{\marginparwidth}{2cm}
+\emergencystretch=1.5em
+
+\setmainfont[Mapping=tex-text]{GFS Didot}
+
+% Load user's LaTeX macros and listings configuration
+\input{matrix_mod_matrix_doc/mymacros}
+
+% Load custom documentation box and man-page styling macros
+\input{matrix_mod_matrix_doc/doc_style}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+\title{%
+  \vspace{-1.2cm}%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=modPrimary,
+    colframe=modPrimary!80!black,
+    coltext=white,
+    arc=2mm,
+    boxrule=1pt,
+    top=12pt, bottom=12pt, left=12pt, right=12pt
+  ]
+  \centering
+  {\LARGE\bfseries Matrix Module Documentation}\\[6pt]
+  {\large Extended Reference Manual for the Fortran \texttt{matrix\_mod\_matrix} Module}
+  \end{tcolorbox}%
+  \vspace{-0.4cm}%
+}
+\author{\textbf{Konstantinos N. Anagnostopoulos}\\
+  {\small Physics Department, National Technical University of Athens}\\
+  {\small \texttt{konstant@mail.ntua.gr} $\cdot$ \url{https://www.physics.ntua.gr/konstant}}}
+\date{\small \today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+This document provides the complete reference manual for the public derived types, constructors, type-bound (component) procedures, overloaded operators, and generic procedures of the Fortran \modname{matrix\_mod\_matrix} module in the \texttt{Matrix} library (\filename{Software/Tools/Matrix/}). Built as an object-oriented layer on top of \modname{matrix\_mod\_array} (\modname{array\_mod}), \texttt{BLAS}, \texttt{LAPACK}, and \texttt{PFAPACK}, \modname{matrix\_mod\_matrix} introduces four high-level derived types---\typename{Matrix} and \typename{DMatrix} for double-precision complex and real matrices, and \typename{Vector} and \typename{DVector} for double-precision complex and real vectors---with built-in dimension, index-bound, symmetry-tag, and label metadata tracking. It supports natural algebraic notation via overloaded operators (\procname{=}, \procname{+}, \procname{-}, \procname{*}, \procname{/}, \procname{**}), zero-allocation \texttt{BLAS} multiplication subroutines (\procname{mmmult}, \procname{mvmult}, \procname{vmmult}), matrix inversion, determinants, Pfaffians, spectral decompositions, element-wise mathematical functions, random matrix generation, and formatted terminal/file/Mathematica I/O. Every public entity is documented in Unix man-page style with its name, synopsis, brief summary, detailed behavior, dummy arguments (or data components), and usage examples.
+\end{abstract}
+
+\vspace{0.3cm}
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  colback=modBoxBg!60,
+  colframe=modPrimary!60,
+  arc=1.5mm,
+  boxrule=0.6pt,
+  left=10pt, right=10pt, top=6pt, bottom=8pt
+]
+\tableofcontents
+\end{tcolorbox}
+\newpage
+
+% Section 1: Usage, Compiling and Linking, Download, Module-Wide Utilities
+\input{matrix_mod_matrix_doc/sec_intro}
+
+% Section 2: Class Matrix (Components, Constructors, Component Procedures, Operators, Procedures)
+\input{matrix_mod_matrix_doc/sec_matrix_core}
+\input{matrix_mod_matrix_doc/sec_matrix_procs}
+
+% Section 3: Class DMatrix (Components, Constructors, Component Procedures, Operators, Procedures)
+\input{matrix_mod_matrix_doc/sec_dmatrix_core}
+\input{matrix_mod_matrix_doc/sec_dmatrix_procs}
+
+% Section 4: Class Vector
+\input{matrix_mod_matrix_doc/sec_vector}
+
+% Section 5: Class DVector
+\input{matrix_mod_matrix_doc/sec_dvector}
+
+% Sections 6-8: Module array_mod, File Structure, Performance, and References
+\input{matrix_mod_matrix_doc/sec_structure_perf}
+
+\end{document}

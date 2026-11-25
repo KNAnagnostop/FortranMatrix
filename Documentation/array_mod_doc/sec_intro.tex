@@ -1,0 +1,147 @@
+% ===================================================================
+% Section 1: Introduction and Usage
+% ===================================================================
+\section{Usage}
+\label{sec:usage}
+
+The \modname{array\_mod} module (part of the \texttt{Matrix} library) provides high-performance, idiomatic Fortran interfaces for linear algebra calculations and array manipulations on double-precision real (\typename{real(8)} / \typename{real(real64)}) and double-precision complex (\typename{complex(8)} / \typename{complex(real64)}) arrays.
+
+Designed for scientific computing and matrix model simulations, \modname{array\_mod} wraps performance-critical Fortran~77 \texttt{BLAS} and \texttt{LAPACK} routines, as well as the \texttt{PFAPACK} library, behind clean modern Fortran generic interfaces. Key capabilities include:
+\begin{itemize}
+  \item \textbf{Basic Matrix Operations}: Matrix trace, quadratic and connected traces ($\Tr A$, $\Tr A^2$, $\Tr(AB)$), traceless projection, Hermitian/symmetric/antisymmetric transformations and norm checks, diagonal extraction and construction, identity and Pauli matrices ($\sigma_0,\sigma_1,\sigma_2,\sigma_3$), $L_1$-averaged array norms, Quicksort with permutation tracking, and Fisher--Yates random shuffling.
+  \item \textbf{Matrix Multiplication}: High-performance matrix--matrix and matrix--vector products via overloaded operator \procname{.mm.}, functional interface \procname{lmatmul} (supporting general, Hermitian, symmetric, and rank-$k$ products $A A^\dagger, A^\dagger A, A A^T, A^T A$), and zero-overhead subroutine interfaces (\procname{mmmult}, \procname{mvmult}, \procname{vmmult}).
+  \item \textbf{Linear Algebra}: Matrix inversion (\procname{inverse}), determinants (\procname{determinant}) and overflow-safe logarithmic determinants (\procname{lndet}), Pfaffians (\procname{pfaffian}) and logarithmic Pfaffians (\procname{lnPfaffian}) for complex skew-symmetric matrices, and full spectral decompositions (\procname{eigenvalues} and \procname{eigenvectors}) with automatic sorting options.
+  \item \textbf{Tensor Products}: Kronecker products (\procname{tensorprod}) of up to six matrices or vectors, along with vector reshaping (\procname{vec2col}, \procname{vec2row}) and column-major matrix vectorization (\procname{vectorize}), exported from \modname{tensorprod\_mod}.
+  \item \textbf{Random Numbers}: Overloaded \procname{random\_number} for uniform and Box--Muller Gaussian distributions on real and complex scalars and arrays of rank 1, 2, and 3, paired with entropy seeding from \filename{/dev/urandom} (\procname{matrix\_random\_init}).
+  \item \textbf{Utilities \& Timing}: Formatted I/O (\procname{save}, \procname{read}), rich array inspection and Mathematica/Gamma-matrix export (\procname{print}, \procname{printna}), IEEE quiet \procname{NaN} generation and testing (\procname{isNaN}), and CPU/wall-clock execution profiling exported from \modname{timer\_mod} (\procname{timer\_mod\_init}, \procname{timer\_mod\_now}, \procname{timer\_mod\_print}).
+\end{itemize}
+
+A minimal program illustrating the use of \modname{array\_mod} is shown below:
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+program hello_world
+  use :: array_mod
+  complex(8), allocatable :: m(:,:)
+  complex(8)              :: z
+
+  n = 8
+  allocate(m(n,n))
+
+  call matrix_random_init           ! seed random number from /dev/urandom
+  call random_number(m, sigma=1._8) ! fill with Gaussian complex random numbers
+
+  z = determinant(m)
+  print *, 'det(m)= ', z
+end program hello_world
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Compiling and Linking}
+\label{subsec:compiling}
+
+To use \modname{array\_mod}, the \texttt{Matrix} library archive (\filename{libMatrix.a}) and its Fortran module description files (\filename{*.mod}) must first be built, and your program must be linked against \texttt{libMatrix}, \texttt{LAPACK}, and \texttt{BLAS}.
+
+If your program is stored in the file \filename{hello.f90} inside the \filename{Software/Tools/Matrix/} directory, build the library and compile with \texttt{gfortran} as follows:
+\lstset{language=bash}
+\begin{lstlisting}
+make gnu
+gfortran hello.f90 -L. -lMatrix -llapack -lblas -o hello
+\end{lstlisting}
+Notice that \lcodeb{make gnu} builds the \texttt{PFAPACK} library first, compiles all module object and \filename{.mod} files, archives them (including the \texttt{PFAPACK} objects) into \filename{libMatrix.a}, and copies the artifacts into \filename{lib/gnu/}. If \texttt{PFAPACK} has already been compiled once, you can also rebuild the module objects and archive directly via \lcodeb{make lib}.
+
+If your source file \filename{hello.f90} is located in a different working directory and the compiled module files and \filename{libMatrix.a} reside in \filename{/path/to/Matrix/} (or \filename{/path/to/Matrix/lib/gnu/}), use the \texttt{-I} flag to specify the location of the \filename{.mod} files and the \texttt{-L} flag for the library archive path:
+\lstset{language=bash}
+\begin{lstlisting}
+gfortran -I/path/to/Matrix/ hello.f90 -L/path/to/Matrix/ -lMatrix -llapack -lblas -o hello
+\end{lstlisting}
+
+\begin{notebox}[Compiler Flags and Multi-Architecture Targets in the Makefile]
+The included \filename{Makefile} provides preconfigured targets for several compilers and high-performance computing architectures:
+\begin{itemize}
+  \item \textbf{GNU Fortran (\texttt{gfortran})}: Run \lcodeb{make gnu}. Uses default flags:
+\lstset{language=bash}
+\begin{lstlisting}
+FC     = gfortran
+FFLAGS = -O3 -mtune=native -funroll-loops -fopenmp -pthread
+LIBS   = -llapack -lblas
+\end{lstlisting}
+  Note that when compiling with \texttt{-fopenmp}, you must also pass \texttt{-fopenmp} when linking your main program, and control thread concurrency at runtime via \lcodeb{export OMP_NUM_THREADS=8}.
+  \item \textbf{Intel Fortran (\texttt{ifx} / \texttt{ifort} with MKL)}: Run \lcodeb{make intel}. Uses \texttt{-O3 -xHost -qopenmp -qmkl=parallel} and copies artifacts to \filename{lib/intel/}.
+  \item \textbf{HPC Cluster Targets}: Specialized targets are provided in the \filename{Makefile} for AMD AOCC/\texttt{flang} with AOCL (\lcodeb{make aris}), GNU with Intel MKL (\lcodeb{make arismkl}), and NVIDIA HPC SDK \texttt{nvfortran} (\lcodeb{make nvaris}, \lcodeb{make icarus}, \lcodeb{make icarusnogpu}).
+  \item \textbf{Debugging}: Run \lcodeb{make debug} (or \lcodeb{make d}) to recompile with \texttt{FFLAGS=-g}.
+\end{itemize}
+\end{notebox}
+
+% -------------------------------------------------------------------
+\subsection{Download}
+\label{subsec:download}
+
+The complete source code archive of the \texttt{Matrix} library can be downloaded from:
+\begin{center}
+  \url{https://physics.ntua.gr/konstant/PUB/Matrix.tgz}
+\end{center}
+The official GitHub repository is maintained at:
+\begin{center}
+  \url{https://github.com/KNAnagnostop/FortranMatrix}
+\end{center}
+
+% -------------------------------------------------------------------
+\subsection{Hello World!}
+\label{subsec:hello_world}
+
+The complete \filename{hello.f90} program below (included in the root directory of the library) tours the essential capabilities of \modname{array\_mod}, including Gaussian random matrix generation, determinants, \texttt{BLAS}-backed matrix multiplication, eigenvalue/eigenvector decomposition and diagonalization, Pfaffian computation, Pauli matrices, Kronecker tensor products, and formatted output for terminal inspection and Mathematica import:
+
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+!------------------------------------------------------------------------------
+program hello_world
+ use :: array_mod
+ complex(8), allocatable :: M(:,:), v(:), v2(:), w(:,:)
+ complex(8), allocatable :: evec(:,:), eval(:)
+ complex(8), allocatable :: P(:,:), Pinv(:,:)
+ complex(8), allocatable :: ldet(:), lpf(:)
+ complex(8)              :: z
+ complex(8), allocatable :: s0(:,:), s1(:,:), s2(:,:), s3(:,:), gamma(:,:)
+
+ n = 8 ; allocate(M(n,n), v(n))
+
+ ! Overloaded random_number() for complex arrays and Gaussian random numbers.
+ ! Create random entries in a Gaussian distribution with sigma=1:
+ call matrix_random_init                          ! seed from /dev/urandom
+ call random_number(M, sigma=1._8); call random_number(v, sigma=1._8)
+
+ z    = determinant(M)
+ ldet = lndet      (M)                            ! log(det(M)) for large M
+
+ v2   = lmatmul(M, v)                             ! use BLAS for M . v
+
+ w    = eigenvectors(M, sortby='RF')              ! Eigenvalues + right evecs,
+                                                  ! ordered by ascending Re
+ eval = w(:,1 )                                   ! 1st column: eigenvalues
+ evec = w(:,2:)                                   ! columns 2..n+1: evecs
+
+ i = 3
+ v2 = lmatmul(M, evec(:,i)) - eval(i) * evec(:,i) ! M.v - lambda v = 0
+ call print( v2 )                                 ! print allocatable array
+
+ ! Diagonalize M:
+ P    = evec ; Pinv = inverse(P)
+ M    = lmatmul(Pinv, lmatmul(M, P))              ! P^{-1} . M . P
+
+ call print(M, FMT='F8.3', name='Mdiag')
+
+ ! Compute Pfaffian:
+ call random_number    (M)
+ call antisymmetric_set(M)
+ z    =   Pfaffian(M)                             ! Pfaffian of antisym M
+ lpf  = lnPfaffian(M)                             ! log(Pfaffian) for large M
+ call print(lpf, form='Mathematica', name='lpf')  ! copy/paste to Mathematica
+
+ ! Tensor product. Use Pauli matrices:
+ s0    = PauliMatrix(0); s1 = PauliMatrix(1)
+ s2    = PauliMatrix(2); s3 = PauliMatrix(3)
+ gamma = tensorprod(s2, s2, s0, s3)
+ call print(gamma, form='Gamma', name='gamma')
+
+end program hello_world
+\end{lstlisting}

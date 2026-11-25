@@ -1,0 +1,437 @@
+% ===================================================================
+% Subsection 2.6: Utilities
+% ===================================================================
+\subsection{Utilities}
+\label{subsec:utilities}
+
+The utility procedures of \modname{array\_mod} handle formatted file I/O (\procname{save}, \procname{read}) controlled by the default I/O unit variables \procname{f\_mout} and \procname{f\_minput}, rich terminal/file/Mathematica/Gamma-matrix array printing (\procname{print}, \procname{printna}), IEEE quiet \procname{NaN} construction and checking (\procname{isNaN}), and program execution timing exported from \modname{timer\_mod} (\procname{timer\_mod\_init}, \procname{timer\_mod\_now}, \procname{timer\_mod\_print}).
+
+% -------------------------------------------------------------------
+\subsubsection{Saving and printing}
+\label{subsubsec:saving_printing}
+
+% ===================================================================
+% 41. save
+% ===================================================================
+\manentry{Generic Subroutine}{save}{save}{Writes a rank-1, rank-2, or rank-3 real or complex array to an output unit in plain text format}{proc:save}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{f\_mout}} \textnormal{\footnotesize--- Default output unit variable (\texttt{stdout})}}{f\textunderscore mout}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call save(C, [unit], [fmt])
+\end{lstlisting}
+
+\manheading{Brief}
+Writes all elements of a 1D, 2D, or 3D \typename{complex(8)} or \typename{real(8)} array \argname{C} sequentially (one element per line) to a Fortran I/O unit so that the array can be restored later with \procname{read}.
+
+\manheading{Description}
+The generic subroutine \procname{save} outputs the elements of a rank-1, rank-2, or rank-3 array \argname{C} in a deterministic loop order:
+\begin{itemize}
+  \item \textbf{Rank-1 array \texttt{C(1:m)}}: Loops $i = 1, \ldots, m$.
+  \item \textbf{Rank-2 array \texttt{C(1:m, 1:n)}}: Loops $i = 1, \ldots, m$ (outer) and $j = 1, \ldots, n$ (inner), writing one matrix element $C(i,j)$ per line in row-major line order.
+  \item \textbf{Rank-3 array \texttt{C(1:m, 1:n, 1:k)}}: Loops $l = 1, \ldots, k$ (outermost), $i = 1, \ldots, m$, and $j = 1, \ldots, n$ (innermost), writing $C(i,j,l)$ (representing $A^l_{ij}$) one element per line.
+\end{itemize}
+For \typename{complex(8)} arrays, each line is written with format \texttt{'(2('//fmt//'))'} (real and imaginary parts on the same line); for \typename{real(8)} arrays, each line is written with format \texttt{'('//fmt//')'}. When a user format \argname{fmt} is given, it is prefixed with \texttt{1X}, i.e., \texttt{'(2(1X,'//fmt//'))'} and \texttt{'(1X,'//fmt//')'}, so that consecutive fields are always separated by a blank and can be read back by \procname{read} even when a value fills its whole field (e.g., \texttt{-1234.567} written with \texttt{fmt='F9.3'}). The default format \texttt{G28.17} always leaves leading blanks and is used unchanged. (Files written by external programs with a fixed-column format should be read with whitespace-separated parsing.)
+
+When the optional argument \argname{unit} is omitted, \procname{save} writes to the public module integer variable \procname{f\_mout} (defined in \modname{matrix\_mod\_common} and initialized to \texttt{stdout = output\_unit}). Users can redirect all default module output globally by setting \lcodef{f_mout = my_unit}. When \argname{fmt} is omitted, the full double-precision format \texttt{'G28.17'} is used.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:), (:,:), or (:,:,:), intent(in)}{Input rank-1, rank-2, or rank-3 array to be saved.}
+  \argitem{unit}{integer, scalar, optional, intent(in)}{Fortran I/O unit number for output. Defaults to \procname{f\_mout} (\texttt{stdout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Fortran numeric format descriptor per real component. Defaults to \texttt{'G28.17'}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,4)
+real   (8) :: d1(4,4)
+integer    :: un
+
+call random_number(m1); call random_number(d1)
+open(newunit=un, file='matrices.dat', action='write')
+call save(m1, unit=un, fmt='G28.17')
+call save(d1, unit=un, fmt='G28.17')
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% 42. read
+% ===================================================================
+\manentry{Generic Subroutine}{read}{read}{Reads a rank-1, rank-2, or rank-3 real or complex array from an input unit}{proc:read}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{f\_minput}} \textnormal{\footnotesize--- Default input unit variable (\texttt{stdin})}}{f\textunderscore minput}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call read(C, [unit])
+\end{lstlisting}
+
+\manheading{Brief}
+Reads the elements of a pre-allocated 1D, 2D, or 3D \typename{complex(8)} or \typename{real(8)} array \argname{C} from a Fortran I/O unit in the exact order written by \procname{save}.
+
+\manheading{Description}
+The generic subroutine \procname{read} populates the array \argname{C} using list-directed input (\texttt{read(un, *)}) in the same loop order as \procname{save}:
+\begin{itemize}
+  \item For \typename{complex(8)} arrays, reads two real numbers \texttt{x, y} per element and assigns \texttt{C(...) = CMPLX(x, y, kind=dp)}.
+  \item For \typename{real(8)} arrays, reads one real number \texttt{C(...)} per element.
+\end{itemize}
+Because the input is list-directed, any whitespace-separated layout is accepted; files written by \procname{save} with any \argname{fmt} (with or without the \texttt{1X} prefix of newer versions) are read identically. If a read fails (end of file, or a token that is not a number), execution terminates via \texttt{matrix\_error} with a message giving the procedure, the element indices, the unit, and the run-time error text.
+
+When \argname{unit} is omitted, \procname{read} reads from the public module integer variable \procname{f\_minput} (defined in \modname{matrix\_mod\_common} and initialized to \texttt{stdin = input\_unit}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:), (:,:), or (:,:,:), intent(inout)}{Target array of rank 1, 2, or 3 (must be allocated with the desired dimensions prior to the call).}
+  \argitem{unit}{integer, scalar, optional, intent(in)}{Fortran I/O unit number to read from. Defaults to \procname{f\_minput} (\texttt{stdin}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,4)
+real   (8) :: d1(4,4)
+integer    :: un
+
+open(newunit=un, file='matrices.dat', action='read')
+call read(m1, unit=un)
+call read(d1, unit=un)
+close(un)
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsubsection{Printing arrays}
+\label{subsubsec:printing_arrays}
+
+% ===================================================================
+% 43. print
+% ===================================================================
+\manentry{Generic Subroutine}{print}{print}{Prints an allocatable 1D or 2D real or complex array in Default, Mathematica, Info, or Gamma format}{proc:print}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! Rank-2 allocatable matrix C(:,:):
+call print(C, [unit], [fmt], [form], [name], [ips], [ipe], [jps], [jpe])
+
+! Rank-1 allocatable vector C(:):
+call print(C, [unit], [fmt], [form], [name], [ips], [ipe])
+\end{lstlisting}
+
+\manheading{Brief}
+Formatted printing subroutine for \emph{allocatable} rank-1 and rank-2 \typename{complex(8)} or \typename{real(8)} arrays, preserving and displaying custom lower and upper array bounds, with support for subarray slicing and direct export to Wolfram Mathematica or Dirac $\Gamma$-matrix notation.
+
+\manheading{Description}
+In Fortran 2003+, declaring a dummy array argument with the \typename{allocatable} attribute passes its actual lower and upper bounds (\texttt{lbound(C)}, \texttt{ubound(C)}) into the subroutine. The generic subroutine \procname{print} exploits this feature to report the true index ranges of \argname{C} and to allow slicing by actual indices via \argname{ips}, \argname{ipe}, \argname{jps}, and \argname{jpe}. (To print a non-allocatable or static array, use \procname{printna}.)
+
+The output style is controlled by the first character of the optional argument \argname{form} (case-insensitive):
+\begin{itemize}
+  \item \textbf{\texttt{form='Default'} or \texttt{'d'} (default)}:
+  Prints a header banner displaying the array name (default \texttt{'AMAT'}), its dimensions $m\times n$ (or vector length $m$), and the active printing bounds \texttt{is : ie} and \texttt{js : je}, followed by the formatted array rows between \texttt{\#pmstart:} / \texttt{\#pmend:} (for matrices) or \texttt{\#pvstart:} / \texttt{\#pvend:} (for vectors) delimiters.
+  \item \textbf{\texttt{form='Mathematica'} or \texttt{'m'}}:
+  Outputs valid Wolfram Mathematica assignment syntax \texttt{<name>=\{...\};} where each floating-point number is wrapped inside \texttt{(Interpreter["Number"]["..."])} so that Fortran exponential notation (e.g., \texttt{0.123E-04}) is parsed seamlessly when copy-pasted or imported into Mathematica.
+  \item \textbf{\texttt{form='Info'} or \texttt{'i'}}:
+  Prints only a single summary line prefixed by \texttt{\#pminfo:} reporting the array name, dimensions, and index bounds without printing the array elements.
+  \item \textbf{\texttt{form='Gamma'} or \texttt{'g'} (for rank-2 \typename{complex(8)} matrices only)}:
+  Designed for visually inspecting Pauli and Dirac $\Gamma$ matrices whose entries lie in $\{0, \pm 1, \pm i\}$ (within a tolerance of $10^{-10}$). Prints a compact grid displaying \texttt{0}, \texttt{1}, \texttt{-1}, \texttt{i}, \texttt{-i} (or \texttt{NN} for any other value).
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), allocatable, dimension(:,:) or (:), intent(in)}{The allocatable 2D matrix or 1D vector to print.}
+  \argitem{unit}{integer, scalar, optional, intent(in)}{Output Fortran unit number. Defaults to \procname{f\_mout} (\texttt{stdout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Numeric format descriptor for each real value. Defaults to \texttt{'G28.17'}.}
+  \argitem{form}{character(*), optional, intent(in)}{Output format mode: \texttt{'Default'} (\texttt{'d'}), \texttt{'Mathematica'} (\texttt{'m'}), \texttt{'Info'} (\texttt{'i'}), or \texttt{'Gamma'} (\texttt{'g'}, rank-2 complex only).}
+  \argitem{name}{character(*), optional, intent(in)}{Display variable name (up to 20 characters). Defaults to \texttt{'AMAT'}.}
+  \argitem{ips, ipe}{integer, scalar, optional, intent(in)}{Start and end row (or vector) indices to print, clamped to $[\texttt{lbound(C,1)}, \texttt{ubound(C,1)}]$.}
+  \argitem{jps, jpe}{integer, scalar, optional, intent(in)}{Start and end column indices to print (for rank-2 matrices), clamped to $[\texttt{lbound(C,2)}, \texttt{ubound(C,2)}]$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:)
+real   (8), allocatable :: d1(:,:)
+
+allocate(m1(4,4), d1(0:5, 0:5))
+call random_number(m1); call random_number(d1)
+
+call print(m1)
+call print(m1, fmt='F8.3', form='Mathematica', name='MAT')
+
+m1 = PauliMatrix(2)   ! sigma_2 Pauli matrix
+call print(m1, form='Gamma', name='s2')
+
+! Print only a 3x3 subblock of d1(0:5, 0:5) and its bounds info:
+call print(d1, fmt='F8.3', name='d1', ips=1, ipe=3, jps=2, jpe=4)
+call print(d1, form='Info', name='d1')
+\end{lstlisting}
+
+% ===================================================================
+% 44. printna
+% ===================================================================
+\manentry{Generic Subroutine}{printna}{printna}{Prints a non-allocatable (static or assumed-shape) 1D or 2D real or complex array}{proc:printna}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call printna(C, [unit], [fmt], [form], [name], [ips], [ipe], [jps], [jpe])
+\end{lstlisting}
+
+\manheading{Brief}
+Wrapper around \procname{print} for non-allocatable (static, explicit-shape, or array-slice) rank-1 and rank-2 \typename{complex(8)} or \typename{real(8)} arrays.
+
+\manheading{Description}
+Because \procname{print} requires its dummy argument \argname{C} to have the \typename{allocatable} attribute, static arrays such as \lcodef{real(8) :: d2(4,4)} or array expressions cannot be passed directly to \procname{print}. The subroutine \procname{printna} accepts any non-allocatable rank-1 or rank-2 array \argname{C}, creates a temporary allocatable copy via \lcodef{ALLOCATE(Ca, source=C)}, invokes \procname{print} on \texttt{Ca} with all optional arguments forwarded, and deallocates \texttt{Ca}.
+
+\begin{notebox}[1-Based Indexing in \texttt{printna}]
+In Fortran, passing an array with custom lower bounds (such as \lcodef{real(8) :: sd(3:5, 6:8)}) to an assumed-shape dummy argument \lcodef{C(:,:)} resets the lower bounds inside \procname{printna} to $1$ (so \texttt{Ca} has bounds \texttt{1:3, 1:3}). Consequently, the optional section arguments \argname{ips}, \argname{ipe}, \argname{jps}, and \argname{jpe} in \procname{printna} always refer to 1-based offsets $1,\ldots,m$ and $1,\ldots,n$.
+\end{notebox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:) or (:), intent(in)}{Non-allocatable 2D matrix or 1D vector to print.}
+  \argitem{unit, fmt, form, name, ips, ipe, jps, jpe}{optional, intent(in)}{Identical to the optional arguments of \procname{print} (note that \argname{jps}, \argname{jpe} are also accepted and ignored in the rank-1 overload).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+real   (8) :: sd(3:5, 6:8)   ! static 3x3 array with custom lower bounds
+complex(8) :: sm(4, 4)
+
+call random_number(sd); call random_number(sm)
+
+call printna(sm, fmt='F8.3', name='sm')
+! In printna, bounds are seen as 1:3, 1:3, so ips=2, jps=2 prints sd(4:5, 7:8):
+call printna(sd, fmt='F8.3', name='d1', ips=2, jps=2)
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsubsection{NaN stuff}
+\label{subsubsec:nan_stuff}
+
+% ===================================================================
+% 45. NaN
+% ===================================================================
+\manentry{Pure Generic Function}{NaN}{NaN}{Returns an IEEE quiet NaN (Not-a-Number) value for real or complex variables and arrays}{proc:NaN}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = NaN()    ! Returns complex(8) (NaN, NaN)
+z = NaN(z0)  ! Returns complex(8) (NaN, NaN)
+r = NaN(r0)  ! Returns real   (8)  NaN
+\end{lstlisting}
+
+\manheading{Brief}
+Generates an IEEE~754 quiet \texttt{NaN} (\texttt{IEEE\_QUIET\_NAN}) of type \typename{complex(8)} or \typename{real(8)} using the intrinsic \texttt{ieee\_arithmetic} module.
+
+\manheading{Description}
+The pure generic function \procname{NaN} (case-insensitive: \texttt{nan}), defined in \modname{matrix\_mod\_common}, constructs quiet Not-a-Number values for error signaling and uninitialized array poisoning:
+\begin{itemize}
+  \item \textbf{Zero-argument call \texttt{NaN()}}: Calls \texttt{IEEE\_VALUE(0.0\_dp, IEEE\_QUIET\_NAN)} and returns a \typename{complex(8)} value $r = (\texttt{NaN}, \texttt{NaN})$ whose real and imaginary parts are both quiet \texttt{NaN}. Note that because Fortran converts \typename{complex(8)} to \typename{real(8)} on assignment by extracting the real part, \lcodef{r = NaN()} or \lcodef{d1 = NaN()} also works for \typename{real(8)} scalars and arrays!
+  \item \textbf{Complex argument \texttt{NaN(z)}}: Given a \typename{complex(8)} scalar \argname{z}, returns \typename{complex(8)} $(\texttt{NaN}, \texttt{NaN})$.
+  \item \textbf{Real argument \texttt{NaN(r)}}: Given a \typename{real(8)} scalar \argname{r}, returns a \typename{real(8)} quiet \texttt{NaN}. When assigned to a complex variable \lcodef{z = NaN(r)}, the real part $\Re(z)$ is set to \texttt{NaN} and $\Im(z)$ to $0.0\_8$.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{z}{complex(8) or real(8), scalar, optional, intent(in)}{Optional mold scalar selecting a \typename{complex(8)} or \typename{real(8)} return value.}
+  \argitem{r}{complex(8) or real(8), scalar, return value}{IEEE quiet \texttt{NaN} scalar (broadcastable by assignment to an entire array or array element).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,4), z
+real   (8) :: d1(4,4), r
+
+z  = nan()              ! sets Re(z) = NaN and Im(z) = NaN
+z  = nan(r)             ! sets Re(z) = NaN and Im(z) = 0.0_8
+z  = cmplx(real(z), nan(r), kind=8) ! sets Im(z) = NaN
+r  = nan(r)             ! real(8) NaN (r = nan() also works)
+
+m1 = nan()              ! sets all m1(i,j) = (NaN, NaN)
+d1 = nan(r)             ! sets all d1(i,j) =  NaN
+\end{lstlisting}
+
+% ===================================================================
+% 46. isNaN
+% ===================================================================
+\manentry{Pure Generic Function}{isNaN}{isNaN}{Tests whether a real or complex scalar or rank-1, rank-2, or rank-3 array contains any NaN value}{proc:isNaN}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+flag = isNaN(x)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns \texttt{.true.} if a \typename{real(8)} or \typename{complex(8)} scalar, or any element of a rank-1, rank-2, or rank-3 array \argname{x}, is an IEEE \texttt{NaN}.
+
+\manheading{Description}
+The pure generic function \procname{isNaN} combines the scalar interfaces in \modname{matrix\_mod\_common} and the array interfaces in \modname{matrix\_mod\_array} (8 module procedures in total):
+\begin{itemize}
+  \item \textbf{Real scalar \texttt{isNaN(r)}}: Returns \texttt{IEEE\_IS\_NAN(r)}.
+  \item \textbf{Complex scalar \texttt{isNaN(z)}}: Returns \texttt{IEEE\_IS\_NAN(REAL(z)) .or. IEEE\_IS\_NAN(AIMAG(z))}.
+  \item \textbf{Rank-1, Rank-2, or Rank-3 Array \texttt{isNaN(C)}}: Loops over all elements of the \typename{real(8)} or \typename{complex(8)} array \argname{C} and returns \texttt{.true.} if \emph{any} element is \texttt{NaN}, or \texttt{.false.} otherwise. Because non-conformable operations in \modname{array\_mod} (such as \procname{lmatmul}, \procname{mmmult}, \procname{trace2}, and \procname{paulimatrix}) return \procname{NaN}-filled arrays on dimension errors, and \procname{inverse}, \procname{determinant}, \procname{lndet}, \procname{pfaffian}, \procname{lnPfaffian}, \procname{eigenvalues}, and \procname{eigenvectors} return \procname{NaN} for non-square input (and \procname{inverse} also for singular matrices, the eigen-solvers also on \texttt{LAPACK} convergence failure), \procname{isNaN} provides a convenient way to detect invalid computations.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{x}{complex(8) or real(8), scalar or dimension(:), (:,:), or (:,:,:), intent(in)}{Scalar or rank-1, rank-2, or rank-3 array to test for \texttt{NaN} entries.}
+  \argitem{itis}{logical, scalar, return value}{\texttt{.true.} if at least one component of \argname{x} is \texttt{NaN}; \texttt{.false.} otherwise.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,4), z
+real   (8) :: d1(4,4), r
+
+call random_number(m1); call random_number(d1)
+print *, isNaN(m1), isNaN(d1)   ! .false.  .false.
+
+m1(2,3) = nan()
+d1(1,4) = nan(r)
+print *, isNaN(m1), isNaN(d1)   ! .true.   .true.
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsubsection{Timing your program}
+\label{subsubsec:timing_program}
+
+\modname{array\_mod} re-exports all public procedures and state variables of \modname{timer\_mod} (\filename{timer\_mod.f90}), enabling accurate tracking of both cumulative and incremental CPU time (via \texttt{cpu\_time}) and wall-clock time (via \texttt{system\_clock} with 64-bit integer counters), together with formatted timestamps (via \texttt{date\_and\_time}).
+
+% ===================================================================
+% 47. timer_mod_init
+% ===================================================================
+\manentry{Subroutine}{timer\_mod\_init}{timer\textunderscore mod\textunderscore init}{Initializes the timer\_mod CPU and wall-clock timers and prints a header banner}{proc:timer_mod_init}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call timer_mod_init([un])
+\end{lstlisting}
+
+\manheading{Brief}
+Records the initial CPU and wall-clock reference times, resets the call counter \procname{timer\_count} to zero, updates \procname{timer\_date}, and writes a two-line \texttt{\#TIMERINIT::} header to unit \argname{un}.
+
+\manheading{Description}
+Calling \procname{timer\_mod\_init} establishes the $t = 0$ origin for subsequent calls to \procname{timer\_mod\_now} and \procname{timer\_mod\_print}:
+\begin{enumerate}
+  \item Calls \texttt{cpu\_time(cpu\_start)} and initializes \texttt{cpu\_mark = cpu\_start}, \texttt{cpu\_now = cpu\_start}, and \texttt{timer\_count = 0}.
+  \item Calls \texttt{system\_clock(wtime\_start, wtime\_rate)} using 64-bit integers (\typename{int64}) and sets \texttt{wtime\_mark = wtime\_start}, \texttt{wtime\_now = wtime\_start}.
+  \item Formats the current date and time into \procname{timer\_date} and writes a two-line header to \argname{un} (or to the public variable \procname{timer\_unit}, initially \texttt{output\_unit}, if \argname{un} is omitted):
+\begin{verbatim}
+#TIMERINIT:: Date: YYYY-MM-DD    HH:MM:SS   ms:  MMM
+#TIMERINIT::   i MESSG      cpu_tot   cpu_del   wtime_tot   wtime_del   Date
+\end{verbatim}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{un}{integer, scalar, optional, intent(in)}{Fortran I/O unit number for the initialization banner. Defaults to \procname{timer\_unit} (initially \texttt{output\_unit}, i.e., \texttt{stdout}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+call timer_mod_init(un=f_mout)
+\end{lstlisting}
+
+% ===================================================================
+% 48. timer_mod_now
+% ===================================================================
+\manentry{Subroutine}{timer\_mod\_now}{timer\textunderscore mod\textunderscore now}{Updates the public CPU time, wall-clock time, counter, and timestamp variables without printing}{proc:timer_mod_now}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{timer\_count, timer\_cputot, timer\_cpudel, timer\_wtimetot, timer\_wtimedel, timer\_date}} \textnormal{\footnotesize--- Public timing variables}}{timer\textunderscore count, timer\textunderscore cputot, timer\textunderscore cpudel, timer\textunderscore wtimetot, timer\textunderscore wtimedel, timer\textunderscore date}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call timer_mod_now
+\end{lstlisting}
+
+\manheading{Brief}
+Increments \procname{timer\_count} and updates \procname{timer\_cputot}, \procname{timer\_cpudel}, \procname{timer\_wtimetot}, \procname{timer\_wtimedel}, and \procname{timer\_date} relative to \procname{timer\_mod\_init} and the previous checkpoint.
+
+\manheading{Description}
+The subroutine \procname{timer\_mod\_now} samples the current CPU clock (\texttt{cpu\_time}) and system wall clock (\texttt{system\_clock}) and updates six public module variables exported by \modname{timer\_mod} and \modname{array\_mod}:
+\begin{description}[leftmargin=3.2cm, style=nextline]
+  \argitem{timer\_count}{integer, public variable}{Number of times \procname{timer\_mod\_now} (or \procname{timer\_mod\_print}) has been called since \procname{timer\_mod\_init}.}
+  \argitem{timer\_cputot}{real(real64), public variable}{Total elapsed CPU time in seconds since the last call to \procname{timer\_mod\_init}.}
+  \argitem{timer\_cpudel}{real(real64), public variable}{Incremental CPU time in seconds elapsed since the previous call to \procname{timer\_mod\_now} or \procname{timer\_mod\_print} (or \procname{timer\_mod\_init} on the first call).}
+  \argitem{timer\_wtimetot}{real(real64), public variable}{Total elapsed wall-clock time in seconds since the last call to \procname{timer\_mod\_init}.}
+  \argitem{timer\_wtimedel}{real(real64), public variable}{Incremental wall-clock time in seconds elapsed since the previous call to \procname{timer\_mod\_now} or \procname{timer\_mod\_print}.}
+  \argitem{timer\_date}{character(100), public variable}{Timestamp string at the most recent call to \procname{timer\_mod\_init}, \procname{timer\_mod\_now}, or \procname{timer\_mod\_print}, formatted as \texttt{'Date: YYYY-MM-DD    HH:MM:SS   ms:  MMM'}.}
+  \argitem{timer\_unit}{integer, public variable}{Default output unit of \procname{timer\_mod\_init} and \procname{timer\_mod\_print} when \argname{un} is omitted. Initialized to \texttt{output\_unit} (\texttt{stdout}); \modname{timer\_mod} does not depend on \modname{matrix\_mod\_common}, so it does not follow \procname{f\_mout} automatically. Set \lcodef{timer_unit = f_mout} (or any open unit) once to redirect all timer output.}
+\end{description}
+
+\manheading{Dummy Arguments}
+None. (Updates the public module variables listed above in-place.)
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: A(500,500), B(500,500)
+
+call timer_mod_init(un=f_mout)
+call random_number(A, sigma=1.0_8)
+B = lmatmul(A)
+
+call timer_mod_now
+print *, 'timer:', timer_count, timer_cputot, timer_cpudel, &
+                   timer_wtimetot, timer_wtimedel, trim(timer_date)
+\end{lstlisting}
+
+% ===================================================================
+% 49. timer_mod_print
+% ===================================================================
+\manentry{Subroutine}{timer\_mod\_print}{timer\textunderscore mod\textunderscore print}{Updates all timing variables via \texttt{timer\_mod\_now} and prints a formatted timing report line}{proc:timer_mod_print}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call timer_mod_print([un], [messg])
+\end{lstlisting}
+
+\manheading{Brief}
+Invokes \procname{timer\_mod\_now} and writes a single formatted \texttt{\#TIMERMOD} checkpoint line containing the call counter, an optional user message \argname{messg}, cumulative and incremental CPU and wall-clock times, and the current date/time.
+
+\manheading{Description}
+The subroutine \procname{timer\_mod\_print} calls \procname{timer\_mod\_now} and outputs a structured log line with format \texttt{'(A,I6,A,4G28.16,A)'} to unit \argname{un}:
+\begin{verbatim}
+#TIMERMOD 1 Flag this point <cpu_tot> <cpu_del> <wtime_tot> <wtime_del> Date:...
+\end{verbatim}
+Because every output line starts with the tag \texttt{\#TIMERMOD}, timing records can be easily filtered from simulation log files using \texttt{grep '\#TIMERMOD'}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{un}{integer, scalar, optional, intent(in)}{Fortran I/O unit number for output. Defaults to \procname{timer\_unit} (initially \texttt{output\_unit}, i.e., \texttt{stdout}).}
+  \argitem{messg}{character(*), optional, intent(in)}{Optional descriptive label printed next to the checkpoint counter \procname{timer\_count}. Defaults to \texttt{' '}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: A(500,500), B(500,500)
+
+call timer_mod_init(un=f_mout)
+call random_number(A, sigma=1.0_8)
+call timer_mod_print(un=f_mout, messg='Random generation complete')
+
+B = lmatmul(A)
+call timer_mod_print(un=f_mout, messg='End of program')
+\end{lstlisting}

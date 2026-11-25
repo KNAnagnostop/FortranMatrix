@@ -1,0 +1,305 @@
+% ===================================================================
+% Subsection 2.4: Tensor Products - Pauli Matrices
+% ===================================================================
+\subsection{Tensor Products --- Pauli Matrices}
+\label{subsec:tensor_products}
+
+The matrix Kronecker (tensor) product $Z = X \otimes Y$ and associated vectorization utilities are implemented in the standalone module \modname{tensorprod\_mod} (\filename{tensorprod\_mod.f90}). Because \modname{array\_mod} re-exports all public procedures of \modname{tensorprod\_mod} (\procname{tensorprod}, \procname{vec2col}, \procname{vec2row}, and \procname{vectorize}), a program containing \lcodef{use array_mod} automatically has access to them without needing a separate \lcodef{use tensorprod_mod} statement (though \modname{tensorprod\_mod} can also be used independently without \modname{array\_mod}).
+
+Given an $N_m\times N_n$ matrix $X$ and an $N_p\times N_q$ matrix $Y$, their Kronecker product $Z = X \otimes Y$ is an $N_i\times N_j$ matrix with $N_i = N_m N_p$ and $N_j = N_n N_q$, whose elements are defined by:
+\begin{align}
+  Z_{ij} = X_{mn}\, Y_{pq}\, , \qquad
+  i = N_p (m - 1) + p\, , \quad
+  j = N_q (n - 1) + q\, ,
+\end{align}
+where $m=1,\ldots,N_m$, $n=1,\ldots,N_n$, $p=1,\ldots,N_p$, and $q=1,\ldots,N_q$.
+
+% ===================================================================
+% 35. tensorprod
+% ===================================================================
+\manentry{Pure Generic Function}{tensorprod}{tensorprod}{Computes the Kronecker tensor product $X_1 \otimes X_2 \otimes \cdots$ of 2 to 6 matrices or two 1D vectors}{proc:tensorprod}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! Kronecker product of 2 to 6 rank-2 matrices:
+Z = tensorprod(X1, X2)
+Z = tensorprod(X1, X2, X3)
+Z = tensorprod(X1, X2, X3, X4)
+Z = tensorprod(X1, X2, X3, X4, X5)
+Z = tensorprod(X1, X2, X3, X4, X5, X6)
+
+! Outer tensor product of two rank-1 vectors (u^T \otimes v):
+Z = tensorprod(u, v)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the Kronecker product $X_1 \otimes X_2 \otimes \cdots \otimes X_k$ ($2 \le k \le 6$) of real or complex rank-2 matrices, or the outer product $u^T \otimes v$ of two rank-1 vectors.
+
+\manheading{Description}
+The pure generic function \procname{tensorprod} is overloaded across 12 module procedures in \modname{tensorprod\_mod}:
+\begin{enumerate}
+  \item \textbf{Two Matrices (\texttt{Z = tensorprod(X, Y)})}: For \typename{complex(8)} or \typename{real(8)} rank-2 arrays $X(N_m,N_n)$ and $Y(N_p,N_q)$, allocates and returns the $(N_m N_p)\times (N_n N_q)$ matrix $Z = X \otimes Y$.
+  \item \textbf{Three to Six Matrices (\texttt{Z = tensorprod(X1, X2, ..., Xk)}, $3 \le k \le 6$)}: Evaluates the iterated Kronecker product $X_1 \otimes (X_2 \otimes \cdots \otimes X_k)$ right-to-left by successive binary calls to \texttt{tensorprod\_complex\_complex} or \texttt{tensorprod\_real\_real}. All input matrices in a call must have the same data type (\typename{complex(8)} or \typename{real(8)}).
+  \item \textbf{Two 1D Vectors (\texttt{Z = tensorprod(u, v)})}: Given a 1D vector \argname{u} of length $N_n$ and a 1D vector \argname{v} of length $N_p$, treats \argname{u} as a $1\times N_n$ row matrix ($u^T$) and \argname{v} as an $N_p\times 1$ column matrix ($v$), returning the $N_p\times N_n$ rank-2 matrix $Z = u^T \otimes v = v u^T$:
+  \begin{align}
+    Z_{pn} = u_n\, v_p\, , \qquad p = 1,\ldots,N_p\, , \quad n = 1,\ldots,N_n\, .
+  \end{align}
+  \item \textbf{Mixed Vector--Matrix Tensor Products}: Because a 1D Fortran array does not distinguish between a row vector and a column vector, mixed tensor products of a vector and a matrix are performed by first converting the 1D vector into an $N\times 1$ column matrix via \procname{vec2col} or a $1\times N$ row matrix via \procname{vec2row}:
+  \begin{itemize}
+    \item \lcodef{tensorprod(vec2col(w), m1)} computes $w \otimes m_1$ of shape $(N_w M_1, N_1)$.
+    \item \lcodef{tensorprod(vec2row(w), m1)} computes $w^T \otimes m_1$ of shape $(M_1, N_w N_1)$.
+    \item \lcodef{tensorprod(m1, vec2col(w))} computes $m_1 \otimes w$ of shape $(M_1 N_w, N_1)$.
+    \item \lcodef{tensorprod(m1, vec2row(w))} computes $m_1 \otimes w^T$ of shape $(M_1, N_1 N_w)$.
+  \end{itemize}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{X, Y, X1..X6}{complex(8) or real(8), dimension(:,:), intent(in)}{From 2 up to 6 rank-2 matrices of the same type (\typename{complex(8)} or \typename{real(8)}).}
+  \argitem{u, v}{complex(8) or real(8), dimension(:), intent(in)}{Two rank-1 vectors of the same type (\argname{u} of length $N_n$, \argname{v} of length $N_p$).}
+  \argitem{Z}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Allocated rank-2 Kronecker product matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: s0(:,:), s1(:,:), s2(:,:), s3(:,:)
+complex(8), allocatable :: g1(:,:), g3(:,:), m(:,:), m1(:,:)
+complex(8)              :: w(4)
+complex(8), parameter   :: IMU = (0.0_8, 1.0_8)
+
+! Construct 16x16 10D Majorana-Weyl Gamma matrices from 2x2 Pauli matrices:
+s0 = PauliMatrix(0); s1 = PauliMatrix(1); s2 = PauliMatrix(2); s3 = PauliMatrix(3)
+g1 = IMU * tensorprod(s2, s2, s2, s2)
+g3 = IMU * tensorprod(s2, s2, s0, s3)
+call print(g1, form='Gamma', name='g1')
+call print(g3, form='Gamma', name='g3')
+
+! Vector-matrix tensor products using vec2col / vec2row:
+allocate(m1(2,2)); call random_number(m1); call random_number(w)
+m = tensorprod(vec2col(w), m1)   ! w   \otimes m1 (8 x 2)
+m = tensorprod(vec2row(w), m1)   ! w^T \otimes m1 (2 x 8)
+\end{lstlisting}
+
+% ===================================================================
+% 36. vec2col
+% ===================================================================
+\manentry{Pure Generic Function}{vec2col}{vec2col}{Reshapes a 1D vector of length $N_p$ into an $N_p \times 1$ rank-2 column matrix}{proc:vec2col}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+Z = vec2col(u)
+\end{lstlisting}
+
+\manheading{Brief}
+Converts a rank-1 \typename{complex(8)} or \typename{real(8)} array \argname{u} of size $N_p$ into an allocatable rank-2 column matrix \argname{Z} of shape $(N_p, 1)$.
+
+\manheading{Description}
+The pure generic function \procname{vec2col} allocates an $N_p\times 1$ matrix \argname{Z} (where $N_p = \texttt{size(u)}$) and sets $\texttt{Z(:,1) = u}$. This allows a 1D vector to participate unambiguously as a column vector in \procname{tensorprod} or matrix multiplication routines.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{u}{complex(8) or real(8), dimension(:), intent(in)}{Input 1D vector of length $N_p$.}
+  \argitem{Z}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output rank-2 column matrix of shape $(N_p, 1)$ with $Z(p,1) = u(p)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8)              :: w(4)
+complex(8), allocatable :: m(:,:)
+
+call random_number(w)
+m = vec2col(w)   ! shape(m) is [4, 1], m(:,1) == w(:)
+\end{lstlisting}
+
+% ===================================================================
+% 37. vec2row
+% ===================================================================
+\manentry{Pure Generic Function}{vec2row}{vec2row}{Reshapes a 1D vector of length $N_n$ into a $1 \times N_n$ rank-2 row matrix}{proc:vec2row}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+Z = vec2row(u)
+\end{lstlisting}
+
+\manheading{Brief}
+Converts a rank-1 \typename{complex(8)} or \typename{real(8)} array \argname{u} of size $N_n$ into an allocatable rank-2 row matrix \argname{Z} of shape $(1, N_n)$.
+
+\manheading{Description}
+The pure generic function \procname{vec2row} allocates a $1\times N_n$ matrix \argname{Z} (where $N_n = \texttt{size(u)}$) and sets $\texttt{Z(1,:) = u}$. Notice that \texttt{vec2row(u)} represents the transpose $u^T$ of the column vector $\texttt{vec2col(u)}$ (without complex conjugation).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{u}{complex(8) or real(8), dimension(:), intent(in)}{Input 1D vector of length $N_n$.}
+  \argitem{Z}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output rank-2 row matrix of shape $(1, N_n)$ with $Z(1,n) = u(n)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+real(8)              :: v(4)
+real(8), allocatable :: d(:,:)
+
+call random_number(v)
+d = vec2row(v)   ! shape(d) is [1, 4], d(1,:) == v(:)
+\end{lstlisting}
+
+% ===================================================================
+% 38. vectorize
+% ===================================================================
+\manentry{Pure Generic Function}{vectorize}{vectorize}{Flattens a rank-2 matrix into a 1D vector by stacking its columns in column-major order}{proc:vectorize}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u = vectorize(Z)
+\end{lstlisting}
+
+\manheading{Brief}
+Constructs a 1D vector $\operatorname{vec}(Z)$ of length $N_m N_n$ by stacking the successive columns of an $N_m\times N_n$ matrix \argname{Z} one below the other.
+
+\manheading{Description}
+Given an $N_m\times N_n$ \typename{complex(8)} or \typename{real(8)} matrix \argname{Z}, \procname{vectorize} allocates and returns a 1D array \argname{u} of length $N_i = N_m N_n$ defined by the standard column-major vectorization mapping:
+\begin{align}
+  u(i) = Z(m,n)\, , \qquad i = (n - 1) N_m + m\, , \quad m = 1,\ldots,N_m\, , \quad n = 1,\ldots,N_n\, .
+\end{align}
+In linear algebra and tensor calculus, $\operatorname{vec}(Z)$ satisfies the fundamental Kronecker-product identity $\operatorname{vec}(A X B) = (B^T \otimes A)\operatorname{vec}(X)$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{Z}{complex(8) or real(8), dimension(:,:), intent(in)}{Input $N_m\times N_n$ rank-2 matrix.}
+  \argitem{u}{complex(8) or real(8), dimension(:), allocatable, return value}{Allocated 1D vector of length $N_m N_n$ containing the stacked columns of \argname{Z}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8)              :: m(3,4)
+complex(8), allocatable :: w(:)
+real   (8)              :: d(3,4)
+real   (8), allocatable :: v(:)
+
+call random_number(m); call random_number(d)
+
+w = vectorize(m)   ! 1D complex vector of size 12: [m(:,1), m(:,2), m(:,3), m(:,4)]
+v = vectorize(d)   ! 1D real    vector of size 12: [d(:,1), d(:,2), d(:,3), d(:,4)]
+\end{lstlisting}
+
+% ===================================================================
+% Subsection 2.5: Random Numbers
+% ===================================================================
+\subsection{Random Numbers}
+\label{subsec:random_numbers}
+
+\modname{array\_mod} extends the intrinsic Fortran \texttt{random\_number} subroutine to support \typename{complex(8)} scalars and rank-1, rank-2, and rank-3 arrays, as well as Gaussian (normal) random variates via the Box--Muller transform for both \typename{real(8)} and \typename{complex(8)} scalars and arrays. It also provides \procname{matrix\_random\_init} to seed the pseudorandom number generator from the operating system's entropy source \filename{/dev/urandom}.
+
+% ===================================================================
+% 39. random_number
+% ===================================================================
+\manentry{Generic Subroutine}{random\_number}{random\textunderscore number}{Overloaded uniform and Box--Muller Gaussian random number generator for real and complex scalars and arrays}{proc:random_number}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! 1. Uniform random numbers in [0, 1) (real) or [0, 1) + i [0, 1) (complex):
+call random_number(x)
+
+! 2. Gaussian (normal) random numbers with standard deviation sigma:
+call random_number(x, sigma=s)
+\end{lstlisting}
+
+\manheading{Brief}
+Populates a \typename{real(8)} or \typename{complex(8)} scalar, 1D vector, 2D matrix, or 3D array \argname{x} with uniform random numbers (when \argname{sigma} is omitted) or zero-mean Gaussian random numbers of standard deviation $\sigma$ (when \argname{sigma} is provided).
+
+\manheading{Description}
+The generic interface \procname{random\_number} overloads the Fortran intrinsic \texttt{random\_number} with 12 module procedures:
+\begin{enumerate}
+  \item \textbf{Uniform Distribution (\argname{sigma} omitted)}:
+  \begin{itemize}
+    \item For any \typename{real} scalar or array of any rank, resolves to the standard Fortran intrinsic \texttt{random\_number(x)}, drawing independent uniform variates in $[0,1)$.
+    \item For a \typename{complex(8)} scalar $z$, rank-1 array $w_1(:)$, rank-2 array $m_1(:,:)$, or rank-3 array $t_1(:,:,:)$, draws independent uniform variates $X, Y \in [0,1)$ for the real and imaginary parts and sets $C = X + i Y$.
+  \end{itemize}
+  \item \textbf{Gaussian Distribution (\texttt{sigma=s} present)}:
+  Generates independent zero-mean Gaussian random numbers using the Box--Muller transform from two uniform variates $x, y \in [0,1)$ (using $1 - x \in (0,1]$ inside the logarithm to avoid the $\ln 0$ singularity at $x = 0$):
+  \begin{itemize}
+    \item For a \typename{real(8)} scalar $r$, 1D array $v_1(:)$, 2D array $d_1(:,:)$, or 3D array $s_1(:,:,:)$:
+    \begin{align}
+      C = \sigma \sqrt{-2\ln(1 - x)}\,\cos(2\pi y) \sim \mathcal{N}(0, \sigma^2)\, , \qquad \vev{C} = 0\, , \quad \vev{C^2} = \sigma^2\, .
+    \end{align}
+    \item For a \typename{complex(8)} scalar $z$, 1D array $w_1(:)$, 2D array $m_1(:,:)$, or 3D array $t_1(:,:,:)$:
+    \begin{align}
+      C = \sigma \sqrt{-2\ln(1 - x)}\,\left[\cos(2\pi y) + i\sin(2\pi y)\right]\, ,
+    \end{align}
+    so that the real and imaginary parts $\Re C$ and $\Im C$ are independent normal variates each with standard deviation $\sigma$ ($\vev{(\Re C)^2} = \vev{(\Im C)^2} = \sigma^2$, and $\vev{|C|^2} = 2\sigma^2$). (To obtain $\vev{|C|^2} = 1$, pass $\texttt{sigma = 1.0\_8 / sqrt(2.0\_8)}$.)
+  \end{itemize}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{x}{complex(8) or real(8), scalar or dimension(:), (:,:), or (:,:,:), intent(out)}{Target scalar or array of rank 1, 2, or 3 to be populated with random numbers.}
+  \argitem{sigma}{real(8), scalar, optional, intent(in)}{When present, selects the Box--Muller Gaussian distribution with standard deviation $\sigma = \argname{sigma}$ for the real (and, for complex targets, imaginary) part.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: t1(4,4,3), m1(4,4), w1(4), z
+real   (8) :: s1(4,4,3), d1(4,4), v1(4), r, s
+
+call matrix_random_init
+s = 1.0_8
+
+! Uniform complex random numbers in [0,1) + i[0,1):
+call random_number(t1) ; call random_number(m1)
+call random_number(w1) ; call random_number(z )
+
+! Gaussian complex random numbers with Re, Im ~ N(0, s^2):
+call random_number(t1, sigma=s) ; call random_number(m1, sigma=s)
+call random_number(w1, sigma=s) ; call random_number(z , sigma=s)
+
+! Gaussian real random numbers ~ N(0, s^2):
+call random_number(s1, sigma=s) ; call random_number(d1, sigma=s)
+call random_number(v1, sigma=s) ; call random_number(r , sigma=s)
+\end{lstlisting}
+
+% ===================================================================
+% 40. matrix_random_init
+% ===================================================================
+\manentry{Subroutine}{matrix\_random\_init}{matrix\textunderscore random\textunderscore init}{Seeds the Fortran intrinsic random number generator from \texttt{/dev/urandom}}{proc:matrix_random_init}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call matrix_random_init
+\end{lstlisting}
+
+\manheading{Brief}
+Initializes the intrinsic \texttt{random\_seed} state vector using cryptographic-grade OS entropy read from \filename{/dev/urandom}.
+
+\manheading{Description}
+The subroutine \procname{matrix\_random\_init} (defined in \modname{matrix\_mod\_common}) queries the required seed array size \texttt{nseeds} via \texttt{call random\_seed(size=nseeds)}, allocates an integer array \texttt{seeds(nseeds)}, opens \filename{/dev/urandom} as an unformatted stream file, reads \texttt{nseeds} random integers, clears their sign bit with \texttt{seeds = iand(seeds, huge(seeds))} (so that all seeds are non-negative without the overflow of \texttt{ABS(-huge-1)}), makes sure the seed vector is not all zeros, and seeds the Fortran runtime PRNG via \texttt{call random\_seed(put=seeds)}. If \filename{/dev/urandom} cannot be opened or read (e.g., on Windows or in restricted containers), it prints a warning to \procname{f\_mout} and falls back to \texttt{call random\_seed()}, whose seeding is processor dependent (non-repeatable with \texttt{gfortran} $\ge 7$). It also logs a status comment line to the module output unit \procname{f\_mout}:
+\begin{verbatim}
+# matrix_random_init: Initializing random_number from /dev/urandom
+\end{verbatim}
+
+\manheading{Dummy Arguments}
+None. (Reads from \filename{/dev/urandom} and writes an initialization banner to the public unit variable \procname{f\_mout}.)
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m(4,4)
+
+call matrix_random_init           ! seed PRNG from /dev/urandom
+call random_number(m, sigma=1._8) ! draw fresh non-repeatable Gaussian matrix
+\end{lstlisting}

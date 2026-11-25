@@ -1,0 +1,684 @@
+% ===================================================================
+% Section 3: Class DMatrix (Components, Constructors, Component Procedures, Operators)
+% ===================================================================
+\section{Class \texttt{DMatrix}}
+\label{sec:class_dmatrix}
+
+The \typename{DMatrix} derived type provides a structured interface for double-precision real (\typename{real(8)} / \typename{real(real64)}) matrix manipulation. Like \typename{Matrix}, it extends the private base type \texttt{MatrixClass}, sharing dimension, index-bound, symmetry, and label metadata as well as inherited I/O and random-filling methods.
+
+% -------------------------------------------------------------------
+\subsection{Components}
+\label{subsec:dmat_components}
+
+% ===================================================================
+% type(DMatrix)
+% ===================================================================
+\manentry{Derived Type}{type(DMatrix)}{DMatrix (type)}{Double-precision real matrix class extending the private \texttt{MatrixClass}}{dmat:type}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+type(DMatrix) :: mat
+! Access elements and metadata:
+! mat % m, mat % n, mat % is, mat % ie, mat % js, mat % je
+! mat % mtype, mat % name, mat % v(is:ie, js:je)
+\end{lstlisting}
+
+\manheading{Brief}
+Encapsulates an allocatable $m \times n$ \typename{real(8)} array \texttt{v(is:ie, js:je)} with dimension, index-bound, symmetry-type, and name metadata.
+
+\manheading{Description}
+An object of type \typename{DMatrix} holds a real $m \times n$ matrix indexed over rows \texttt{is:ie} (\texttt{ie = is + m - 1}) and columns \texttt{js:je} (\texttt{je = js + n - 1}). Before construction, \texttt{m = n = is = ie = js = je = 0} and \texttt{mtype = 'GG'}. After construction, \texttt{mtype} is \texttt{'DG'} (general double-precision real matrix) or \texttt{'DS'} (real symmetric matrix, $D^T = D$). When \texttt{mtype = 'DS'}, \procname{*} (for \typename{DMatrix} $\times$ \typename{DMatrix} and \typename{DMatrix} $\times$ array), \procname{mmmult}, \procname{mvmult}, \procname{trace2}, \procname{trace2c}, \procname{eigenvalues}, and \procname{eigenvectors} automatically select optimized symmetric \texttt{BLAS}/\texttt{LAPACK} paths (which read only the upper triangle) or $O(N^2)$ formulas. The operator \texttt{d1 * u1} (\typename{DMatrix} $\times$ \typename{DVector}) always uses the general \texttt{dgemv}; use \procname{mvmult} for the symmetric \texttt{dsymv} path. Note that \texttt{name} has length \texttt{name\_len = 20} (inherited from \texttt{MatrixClass}).
+
+\manheading{Data Components}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{m, n}{integer, default 0}{Number of rows (\texttt{m}) and columns (\texttt{n}); \texttt{m == 0} indicates an uninitialized \typename{DMatrix}.}
+  \argitem{is, ie}{integer, default 0}{Lower and upper row index bounds satisfying \texttt{ie = is + m - 1}.}
+  \argitem{js, je}{integer, default 0}{Lower and upper column index bounds satisfying \texttt{je = js + n - 1}.}
+  \argitem{mtype}{character(4), default \texttt{'GG'}}{\texttt{LAPACK}-style matrix type (\texttt{mtype\_len = 4}): \texttt{'DG'} for general real matrices, \texttt{'DS'} for real symmetric matrices, or \texttt{'GG'} if uninitialized.}
+  \argitem{name}{character(20), default \texttt{''}}{User-defined matrix label (\texttt{name\_len = 20}) displayed by \procname{\% print}.}
+  \argitem{v(:,:)}{real(8), allocatable}{Allocated rank-2 real array storing matrix elements with bounds \texttt{v(is:ie, js:je)}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: dmat
+
+dmat = DMatrix(4, 3, is=1, js=5, name='D')
+print *, dmat % m, dmat % n       ! 4, 3
+print *, dmat % mtype             ! 'DG'
+print *, dmat % js, dmat % je     ! 5, 7
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Constructors}
+\label{subsec:dmat_constructors}
+
+% ===================================================================
+% DMatrix(...) constructor
+% ===================================================================
+\manentry{Generic Constructor}{DMatrix(...)}{DMatrix (constructor)}{Constructs and allocates a \texttt{type(DMatrix)} object (zero, constant, random, identity, or from 2D real array)}{dmat:constructor}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+dmat = DMatrix(m, [n], [is], [js], [mtype], [name])
+dmat = DMatrix(C,      [is], [js], [mtype], [name])
+dmat = DMatrix(r, m, [n], [is], [js], [mtype], [name])
+dmat = DMatrix(z, m, [n], [is], [js], [mtype], [name])
+dmat = DMatrix(rtype, m, [n], [is], [js], [mtype], [name], [sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Allocates a \typename{type(DMatrix)}, initializes metadata and index bounds, and fills \texttt{dmat \% v} with zeros, a constant scalar, a 2D \typename{real(8)} array, an identity matrix, or uniform/Gaussian random numbers.
+
+\manheading{Description}
+All five constructor forms share the metadata rules in \texttt{matrix\_metadata\_put}:
+\begin{enumerate}
+  \item \textbf{Zero Matrix \texttt{DMatrix(m, ... )}}: Allocates an $m \times n$ matrix filled with \texttt{0.0\_8}. Defaults: \texttt{n = m}, \texttt{is = 1}, \texttt{js = 1} (or \texttt{js = is} if \argname{is} is supplied without \argname{js}), \texttt{mtype = 'DG'}, \texttt{name = ''}. Specifying \argname{m} or \argname{n} $\le 0$, an \argname{mtype} other than \texttt{'DG'}/\texttt{'DS'}, or \texttt{mtype = 'DS'} with $m \neq n$ aborts via \texttt{matrix\_error}.
+  \item \textbf{From 2D Real Array \texttt{DMatrix(C, ... )}}: Copies a \typename{real(8)(:,:)} array \argname{C}. Defaults to \texttt{is = js = 1}; pass \texttt{is=lbound(C,1)} and \texttt{js=lbound(C,2)} to preserve arbitrary bounds. If \texttt{mtype = 'DS'}, \cbox{call dmat \% symmetric\_set} is called automatically without checking symmetry of \argname{C}.
+  \item \textbf{Constant Scalar \texttt{DMatrix(r, m, ... )} / \texttt{DMatrix(z, m, ... )}}: Sets every entry to \typename{real(8)} scalar \argname{r}, or to \texttt{REAL(z, kind=8)} for a \typename{complex(8)} scalar \argname{z}. Note that the scalar value comes \emph{before} dimension \argname{m}.
+  \item \textbf{Random or Identity Matrix \texttt{DMatrix(rtype, m, ... )}}: Dispatches on \argname{rtype(1:1)}:
+  \begin{itemize}
+    \item \texttt{'r'}/\texttt{'R'}/\texttt{'u'}/\texttt{'U'}: Uniform random numbers in $[0,1)$ via \procname{dmat \% random} (copies lower triangle into upper triangle when \texttt{mtype = 'DS'}).
+    \item \texttt{'g'}/\texttt{'G'}: Gaussian random numbers with standard deviation \argname{sigma} (default \texttt{1.0\_8}) via \procname{dmat \% gaussian} (variance-preserving symmetrization when \texttt{mtype = 'DS'}).
+    \item \texttt{'1'}: Real $m \times m$ identity matrix (aborts if $m \neq n$).
+    \item Passing an empty string (\texttt{len(rtype) < 1}) or any other leading character aborts via \texttt{matrix\_error}.
+  \end{itemize}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{m}{integer, intent(in)}{Number of rows ($m > 0$). Required except in \texttt{DMatrix(C, ...)}.}
+  \argitem{n}{integer, optional, intent(in)}{Number of columns ($n > 0$; defaults to \argname{m}). Must equal \argname{m} for \texttt{mtype='DS'} or \texttt{rtype='1'}.}
+  \argitem{is, js}{integer, optional, intent(in)}{Starting row and column indices (\texttt{is} defaults to \texttt{1}; \texttt{js} defaults to \texttt{is}).}
+  \argitem{mtype}{character(*), optional, intent(in)}{Symmetry tag: \texttt{'DG'} (default) or \texttt{'DS'} (symmetric; requires $m = n$).}
+  \argitem{name}{character(*), optional, intent(in)}{Optional name (up to 20 characters; defaults to \texttt{''}).}
+  \argitem{C}{real(8), dimension(:,:), intent(in)}{Source 2D real array for \texttt{DMatrix(C, ...)}.}
+  \argitem{r / z}{real(8) / complex(8), intent(in)}{Constant fill value (\texttt{REAL(z, kind=8)} if complex), passed before \argname{m}.}
+  \argitem{rtype}{character(*), intent(in)}{Generator selector: \texttt{'uniform'}/\texttt{'random'}, \texttt{'gaussian'}, or \texttt{'1'}.}
+  \argitem{sigma}{real(8), optional, intent(in)}{Gaussian standard deviation (defaults to \texttt{1.0\_8}).}
+  \argitem{MAT}{type(DMatrix), return value}{Allocated \typename{DMatrix} object.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+real(8)       :: A(0:2, 0:2) = 1.0_8
+type(DMatrix) :: d0, d1, d2, d3
+
+d0 = DMatrix(4, mtype='DS', name='SymZero')
+d1 = DMatrix(3.14159_8, 4)
+d2 = DMatrix(A, is=lbound(A,1), js=lbound(A,2), mtype='DS')
+d3 = DMatrix('gaussian', 8, mtype='DS', sigma=0.5_8)
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Component Procedures}
+\label{subsec:dmat_comp_procs}
+
+Objects of \typename{type(DMatrix)} inherit five type-bound procedures from \texttt{MatrixClass} (\procname{save}, \procname{read}, \procname{print}, \procname{random}, \procname{gaussian}) and define four \typename{DMatrix}-specific type-bound generics: \procname{symmetric\_set}, \procname{traceless\_set}, \procname{transpose}, and \procname{symmetric}.
+
+% ===================================================================
+% DMAT % save
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% save}{DMatrix \% save}{Writes real matrix elements in plain text column-major order}{dmat:save}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % save([unit], [fmt])
+\end{lstlisting}
+
+\manheading{Brief}
+Saves all raw \typename{real(8)} elements of \texttt{dmat \% v} in column-major order to \argname{unit}.
+
+\manheading{Description}
+Iterates in column-major order (\texttt{do j = js, je; do i = is, ie}) and writes each \texttt{dmat \% v(i,j)} using \texttt{'('//fmt//')'} (default \texttt{fmt = 'G28.17'}) to \argname{unit} (default \procname{f\_mout}). Returns silently if \texttt{dmat \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Passed-object real matrix.}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran output unit (defaults to \procname{f\_mout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Real edit descriptor (defaults to \texttt{'G28.17'}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+integer       :: un
+
+d1 = DMatrix('uniform', 4)
+open(newunit=un, file='dmat.dat', status='replace')
+call d1 % save(unit=un, fmt='ES22.14')
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % read
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% read}{DMatrix \% read}{Reads real matrix elements in column-major order from a Fortran unit}{dmat:read}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % read([unit])
+\end{lstlisting}
+
+\manheading{Brief}
+Reads plain-text real numbers into a pre-allocated \texttt{dmat \% v} in column-major order via list-directed \texttt{read(un,*)}.
+
+\manheading{Description}
+Reads one \typename{real(8)} scalar per entry in column-major order (\texttt{do j = js, je; do i = is, ie}) from \argname{unit} (default internal \texttt{f\_minput = stdin}). Returns silently if \texttt{dmat \% v} is not allocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Pre-constructed real matrix receiving data.}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran input unit (defaults to \texttt{stdin}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d2
+integer       :: un
+
+d2 = DMatrix(4)
+open(newunit=un, file='dmat.dat', status='old')
+call d2 % read(unit=un)
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % print
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% print}{DMatrix \% print}{Pretty-prints a \texttt{DMatrix}, metadata summary, or Mathematica expression}{dmat:print}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % print([unit], [fmt], [form], [ips], [ipe], [jps], [jpe])
+\end{lstlisting}
+
+\manheading{Brief}
+Prints a \typename{DMatrix} (or sub-block \texttt{ips:ipe, jps:jpe}) in \texttt{'Default'}, \texttt{'Info'}, or \texttt{'Mathematica'} format.
+
+\manheading{Description}
+Shares the same inherited implementation (\texttt{matrix\_print}) as \procname{MAT \% print}, formatting real rows with \texttt{(n//fmt)} in \texttt{'Default'} mode, printing \texttt{(v not allocated)} in \texttt{'Info'} mode when \texttt{dmat \% v} is unallocated, and emitting real \texttt{Interpreter["Number"]} nested lists in \texttt{'Mathematica'} mode. Aborts via \texttt{matrix\_error} if uninitialized (\texttt{m == 0}), unallocated (in \texttt{'Default'} or \texttt{'Mathematica'} mode), of unknown subclass, or given an unknown \argname{form}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Initialized real matrix.}
+  \argitem{unit}{integer, optional, intent(in)}{Destination Fortran unit (defaults to \procname{f\_mout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Numeric format string (defaults to \texttt{'G28.17'}).}
+  \argitem{form}{character(*), optional, intent(in)}{Output mode: \texttt{'Default'} (default), \texttt{'Info'}, or \texttt{'Mathematica'}.}
+  \argitem{ips, ipe, jps, jpe}{integer, optional, intent(in)}{Optional slice bounds clamped to \texttt{[is,ie]} and \texttt{[js,je]}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d
+
+d = DMatrix('gaussian', 6, mtype='DS', name='Sym')
+call d % print(fmt='F8.4')
+call d % print(form='Info')
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % random
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% random}{DMatrix \% random}{Fills a \texttt{DMatrix} with uniform random numbers in $[0,1)$, respecting \texttt{mtype='DS'}}{dmat:random}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % random()
+\end{lstlisting}
+
+\manheading{Brief}
+Fills \texttt{dmat \% v} with uniform $[0,1)$ random numbers, symmetrizing without changing the distribution when \texttt{dmat \% mtype = 'DS'}.
+
+\manheading{Description}
+Calls \texttt{array2\_random\_set\_d(dmat \% v)}. If \texttt{dmat \% mtype = 'DS'}, copies the lower triangle into the upper triangle (\texttt{dmat \% v(is+i, js+j) = dmat \% v(is+j, js+i)}) instead of averaging $(X_1+X_2)/2$, keeping all entries uniformly distributed. Aborts if \texttt{dmat \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Pre-allocated real matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d
+
+d = DMatrix(4, mtype='DS')
+call d % random()
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % gaussian
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% gaussian}{DMatrix \% gaussian}{Fills a \texttt{DMatrix} with Gaussian random numbers of std dev $\sigma$, respecting \texttt{'DS'}}{dmat:gaussian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % gaussian([sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Populates \texttt{dmat \% v} with zero-mean Gaussian variates of standard deviation \argname{sigma} (default \texttt{1.0\_8}), maintaining $\sigma$ when symmetrizing \texttt{mtype = 'DS'}.
+
+\manheading{Description}
+Draws normal variates via \texttt{array2\_gauss\_set\_d}. When \texttt{dmat \% mtype = 'DS'}, generates numbers with $s = \sigma\sqrt{2}$, invokes \cbox{call dmat \% symmetric\_set}, and divides the diagonal by $\sqrt{2}$ so both diagonal and off-diagonal entries have standard deviation $\sigma$. Aborts if unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Pre-allocated real matrix.}
+  \argitem{sigma}{real(8), optional, intent(in)}{Gaussian standard deviation (defaults to \texttt{1.0\_8}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d
+
+d = DMatrix(6, mtype='DS')
+call d % gaussian(sigma=2.0_8)
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % symmetric_set
+% ===================================================================
+\manentry{Type-Bound Subroutine}{DMAT \% symmetric\_set}{DMatrix \% symmetric\textunderscore set}{Symmetrizes a square \texttt{DMatrix} in-place and sets \texttt{mtype = 'DS'}}{dmat:comp_symmetric_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % symmetric_set([uplo])
+\end{lstlisting}
+
+\manheading{Brief}
+Makes an allocated square \typename{DMatrix} symmetric ($D = D^T$) in-place and sets \texttt{dmat \% mtype = 'DS'}.
+
+\manheading{Description}
+Checks allocation and squareness (aborting via \texttt{matrix\_error} on failure), calls \procname{symmetric\_set} on \texttt{dmat \% v}, and updates \texttt{dmat \% mtype = 'DS'}. If \argname{uplo(1:1)} is \texttt{'U'} or \texttt{'L'}, the chosen triangle is copied to the opposite triangle; otherwise $D \leftarrow \frac{1}{2}(D + D^T)$ is computed.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Allocated square real matrix.}
+  \argitem{uplo}{character(*), optional, intent(in)}{\texttt{'U'} (keep upper), \texttt{'L'} (keep lower), or omitted/other (average).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d
+
+d = DMatrix('gaussian', 5)
+call d % symmetric_set()     ! d is now symmetric and d % mtype == 'DS'
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % traceless_set
+% ===================================================================
+\manentry{Type-Bound Pure Subroutine}{DMAT \% traceless\_set}{DMatrix \% traceless\textunderscore set}{Makes a square \texttt{DMatrix} traceless in-place}{dmat:comp_traceless_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call dmat % traceless_set()
+\end{lstlisting}
+
+\manheading{Brief}
+Subtracts $\frac{1}{N}(\Tr D)\, I_N$ from the diagonal of \texttt{dmat \% v} in-place so that $\Tr D = 0$.
+
+\manheading{Description}
+Bound via \texttt{generic :: traceless\_set => dmatrix\_traceless\_set} on \typename{DMatrix}, this \texttt{pure} method calls \procname{traceless\_set(dmat \% v)}, preserving \texttt{mtype} (\texttt{'DG'} or \texttt{'DS'}) and \texttt{name}. Non-square matrices are filled with \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Square real matrix modified in-place.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d
+
+d = DMatrix('gaussian', 6, mtype='DS')
+call d % traceless_set()
+print *, 'Trace:', trace(d)
+\end{lstlisting}
+
+% ===================================================================
+% DMAT % transpose and DMAT % symmetric
+% ===================================================================
+\manentry{Type-Bound Functions}{DMAT \% transpose, DMAT \% symmetric}{DMatrix \% transpose, DMatrix \% symmetric}{Return the transpose $D^T$ as a new \texttt{DMatrix}, swapping $m \leftrightarrow n$ and bounds}{dmat:comp_transpose}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix \% symmetric}}}{DMatrix \% symmetric}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = d1 % transpose()
+d2 = d1 % symmetric()   ! identical alias returning D^T
+\end{lstlisting}
+
+\manheading{Brief}
+Both methods return the transpose \texttt{TRANSPOSE(d1 \% v)} as a new \typename{DMatrix} with dimensions and index ranges swapped ($m \leftrightarrow n$, \texttt{is} $\leftrightarrow$ \texttt{js}).
+
+\manheading{Description}
+Both \procname{\% transpose()} and \procname{\% symmetric()} map to \texttt{matrix\_return\_transpose\_d}, allocating an $n \times m$ \typename{DMatrix} with bounds \texttt{js:je, is:ie}, preserving \texttt{mtype} and \texttt{name}, and setting \texttt{d2 \% v = TRANSPOSE(d1 \% v)}. Note that \procname{\% symmetric()} does \emph{not} symmetrize \argname{d1}; use \procname{\% symmetric\_set} for in-place symmetrization.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Passed-object $m \times n$ real matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Transposed $n \times m$ \typename{DMatrix}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+
+d1 = DMatrix('uniform', 3, 5, is=1, js=4)
+d2 = d1 % transpose()   ! 5x3 matrix with is=4, js=1
+d3 = d1 % symmetric()   ! identical to d1 % transpose()
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Operators}
+\label{subsec:dmat_operators}
+
+\modname{matrix\_mod\_matrix} overloads assignment, arithmetic, element-wise power, and matrix/vector multiplication operators for \typename{DMatrix}.
+
+\mansubgroup{Assignment}
+
+% ===================================================================
+% assignment(=) DMatrix
+% ===================================================================
+\manentry{Overloaded Operator}{assignment(=) (DMatrix)}{DMatrix: assignment(=)}{Assigns another \texttt{DMatrix}, 2D real array, or scalar to a \texttt{DMatrix}}{dmat:op_assign}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+dmat = d1     ! type(DMatrix)        -> copies metadata and values
+dmat = A      ! real(8)    :: A(:,:) -> copies array A into dmat % v
+dmat = r      ! real(8)    :: r      -> fills pre-allocated dmat % v = r
+dmat = z      ! complex(8) :: z      -> fills pre-allocated dmat % v = Re(z)
+\end{lstlisting}
+
+\manheading{Brief}
+Overloads \texttt{=} for assigning a \typename{DMatrix}, 2D \typename{real(8)} array, \typename{real(8)} scalar, or \typename{complex(8)} scalar (taking its real part) to a \typename{DMatrix}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \texttt{dmat = d1} (\typename{type(DMatrix)}): Copies all metadata and automatically allocates/reallocates \texttt{dmat \% v}.
+  \item \texttt{dmat = r} (\typename{real(8)}) and \texttt{dmat = z} (\typename{complex(8)}): Require \texttt{dmat \% v} to be already allocated (else \texttt{matrix\_error}); fill \texttt{dmat \% v = r} or \texttt{REAL(z, kind=8)} while keeping metadata unchanged.
+  \item \texttt{dmat = A} (\typename{real(8)(:,:)}): If \texttt{dmat \% m == 0} (uninitialized), initializes \texttt{m, n, is, ie, js, je} from \argname{A}, sets \texttt{mtype = 'DG'}, \texttt{name = ''}, and copies \argname{A}. If already constructed (\texttt{dmat \% m /= 0}), checks shape conformance (aborting via \texttt{matrix\_error} on mismatch), preserves existing \texttt{is, js, name}, resets \texttt{dmat \% mtype = 'DG'}, and copies \argname{A} into \texttt{dmat \% v}.
+\end{itemize}
+
+\begin{warnbox}[Metadata Reset and Unsupported Right-Hand Types]
+\begin{enumerate}
+  \item Assigning a raw real array \lcodef{dmat = A} resets \texttt{dmat \% mtype = 'DG'} (since a general array need not be symmetric). Call \cbox{call dmat \% symmetric\_set} afterwards if \argname{A} is symmetric.
+  \item \texttt{dmat = m1} (from \typename{Matrix}) and \texttt{dmat = C} (from \typename{complex(8)(:,:)}) are \emph{not} overloaded for \typename{DMatrix}; use \lcodef{dmat = real(m1)} or \cbox{dmat = m1 \% re()}.
+\end{enumerate}
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATB}{type(DMatrix), intent(inout)}{Destination \typename{DMatrix}.}
+  \argitem{rhs}{type(DMatrix), real(8)(:,:), real(8), or complex(8), intent(in)}{Right-hand value.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+real(8)       :: A(4,4) = 2.0_8
+
+d1 = DMatrix(4, is=0, name='Target')
+d1 = A                    ! keeps is=0, name='Target', mtype='DG'
+d2 = DMatrix(4)
+d2 = (3.5_8, 9.9_8)       ! stores real part 3.5_8 everywhere
+\end{lstlisting}
+
+\mansubgroup{Addition, Subtraction, Scalar Multiplication, Division, and Power}
+
+% ===================================================================
+% operator(+) DMatrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(+) (DMatrix)}{DMatrix: operator(+)}{Adds a \texttt{DMatrix} with a real scalar, 2D real array, or another \texttt{DMatrix}}{dmat:op_plus}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = d1 + r;   d2 = r + d1     ! real(8) scalar + DMatrix (pure)
+d2 = d1 + A;   d2 = A + d1     ! real(8)(:,:) array + DMatrix
+d3 = d1 + d2                   ! DMatrix + DMatrix
+\end{lstlisting}
+
+\manheading{Brief}
+Computes element-wise sums involving \typename{DMatrix}, enforcing conformability and propagating symmetry tags.
+
+\manheading{Description}
+\texttt{d1 + r} and \texttt{r + d1} preserve all metadata (including \texttt{'DS'}). \texttt{d1 + A} and \texttt{A + d1} verify shape matching (calling \texttt{matrix\_error} otherwise) and set \texttt{mtype = 'DG'}. For \texttt{d1 + d2}, the result gets \texttt{mtype = 'DS'} iff both \argname{d1} and \argname{d2} are \texttt{'DS'}, and \texttt{'DG'} otherwise. Note that \texttt{DMatrix + complex} is not overloaded, while mixed \texttt{DMatrix + Matrix} returns a \typename{Matrix} (Section~\ref{mat:op_plus}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{class(DMatrix), real(8)(:,:), or real(8), intent(in)}{Operands.}
+  \argitem{result}{type(DMatrix), return value}{Allocated real sum matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+
+d1 = DMatrix('gaussian', 4, mtype='DS')
+d2 = DMatrix('gaussian', 4, mtype='DS')
+d3 = d1 + d2 + 1.0_8    ! preserves mtype='DS'
+\end{lstlisting}
+
+% ===================================================================
+% operator(-) DMatrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(-) (DMatrix)}{DMatrix: operator(-)}{Unary negation and binary subtraction for \texttt{DMatrix}}{dmat:op_minus}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = -d1                       ! unary negation
+d2 = d1 - r;   d2 = r - d1     ! real(8) scalar and DMatrix (pure)
+d2 = d1 - A;   d2 = A - d1     ! real(8)(:,:) array and DMatrix
+d3 = d1 - d2                   ! DMatrix - DMatrix
+\end{lstlisting}
+
+\manheading{Brief}
+Negates a \typename{DMatrix} or subtracts scalars, 2D real arrays, or another \typename{DMatrix} element-wise.
+
+\manheading{Description}
+Unary \texttt{-d1} and scalar differences preserve \texttt{d1 \% mtype}; \texttt{d1 - d2} produces \texttt{'DS'} iff both \argname{d1} and \argname{d2} are \texttt{'DS'}, else \texttt{'DG'}, and array differences \texttt{d1 - A} and \texttt{A - d1} reset \texttt{mtype = 'DG'}. Shape mismatches abort via \texttt{matrix\_error}. Mixed \texttt{DMatrix - Matrix} returns a \typename{Matrix} (Section~\ref{mat:op_minus}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{class(DMatrix), real(8)(:,:), or real(8), intent(in)}{Operands.}
+  \argitem{result}{type(DMatrix), return value}{Allocated difference matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+
+d1 = DMatrix('gaussian', 4, mtype='DS')
+d2 = DMatrix('gaussian', 4, mtype='DS')
+d3 = -d1 - d2     ! d3 % mtype == 'DS'
+\end{lstlisting}
+
+% ===================================================================
+% Scalar * and / DMatrix
+% ===================================================================
+\manentry{Overloaded Operators}{operator(*) (Scalar), operator(/) (DMatrix)}{DMatrix: scalar * and /}{Scalar multiplication and division for \texttt{DMatrix}}{dmat:op_scale}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = r * d1;   d2 = d1 * r;   d2 = d1 / r   ! returns DMatrix (pure)
+m3 = z * d1;   m3 = d1 * z                  ! z * DMatrix -> Matrix (pure)
+\end{lstlisting}
+
+\manheading{Brief}
+Scales a \typename{DMatrix} by a real scalar (returning a \typename{DMatrix} with preserved metadata) or by a complex scalar (returning a \typename{Matrix}).
+
+\manheading{Description}
+The real overloads \texttt{r * d1}, \texttt{d1 * r}, and \texttt{d1 / r} preserve all metadata including \texttt{mtype = 'DS'}. Multiplying a \typename{DMatrix} by a \typename{complex(8)} scalar \argname{z} promotes the result to \typename{type(Matrix)} with \texttt{mtype = 'ZG'} and \texttt{name = d1 \% name} (see also Section~\ref{mat:op_scale}). Note that division \texttt{d1 / z} by a complex scalar is not overloaded for \typename{DMatrix}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{r / z}{real(8) or complex(8), scalar, intent(in)}{Scalar multiplier or real divisor.}
+  \argitem{MATA}{class(DMatrix), intent(in)}{Input real matrix.}
+  \argitem{MATB}{type(DMatrix) or type(Matrix), return value}{Scaled real or promoted complex matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+type(Matrix)  :: m3
+
+d1 = DMatrix('gaussian', 4, mtype='DS')
+d2 = 2.5_8 * d1 / 5.0_8
+m3 = (0.0_8, 1.0_8) * d1   ! Matrix with pure imaginary entries
+\end{lstlisting}
+
+% ===================================================================
+% operator(**) DMatrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(**) (DMatrix)}{DMatrix: operator(**)}{Computes element-wise exponentiation $(D_{ij})^x$ of a \texttt{DMatrix}}{dmat:op_pow}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = d1 ** k    ! integer k (pure)
+d2 = d1 ** x    ! real(8) x (pure)
+\end{lstlisting}
+
+\manheading{Brief}
+Applies element-wise exponentiation \texttt{(d1 \% v) ** x} for an integer or real exponent, preserving \texttt{d1 \% mtype}.
+
+\manheading{Description}
+This \texttt{pure} operator copies all metadata (including \texttt{mtype}) from \argname{d1} and raises each entry to the power \argname{x}. Note that complex exponents are not supported for \typename{DMatrix}, and \texttt{d1 ** k} is element-wise (not matrix power $D^k$).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Base real matrix.}
+  \argitem{n}{integer or real(8), scalar, intent(in)}{Real or integer exponent.}
+  \argitem{MATB}{type(DMatrix), return value}{Result \typename{DMatrix} with preserved metadata.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('uniform', 4)
+d2 = d1 ** 0.5_8    ! element-wise square root
+\end{lstlisting}
+
+\mansubgroup{Matrix Multiplication}
+
+% ===================================================================
+% operator(*) DMatrix Multiplication
+% ===================================================================
+\manentry{Overloaded Operator}{operator(*) (DMatrix Multiplication)}{DMatrix: matrix *}{BLAS-backed matrix--matrix and matrix--vector multiplication for \texttt{DMatrix}}{dmat:op_matmul}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d3 = d1 * d2;   d3 = d1 * A;   d3 = A * d1   ! DMatrix * DMatrix / array
+u2 = d1 * u1;   u2 = u1 * d1                 ! DMatrix * DVector -> DVector
+\end{lstlisting}
+
+\manheading{Brief}
+Computes real matrix--matrix products ($D_1 D_2$) and real matrix--vector products ($D_1 u_1$ or $u_1^T D_1$) via \texttt{BLAS} (\texttt{dgemm}, \texttt{dsymm}, \texttt{dgemv}).
+
+\manheading{Description}
+\begin{itemize}
+  \item \textbf{Matrix--Matrix (\texttt{d1*d2}, \texttt{d1*A}, \texttt{A*d1})}: Row bounds \texttt{is:ie} come from the left operand and column bounds \texttt{js:je} from the right operand (\texttt{1:size(A,.)} for raw arrays); \texttt{mtype} is always set to \texttt{'DG'}, and \texttt{name} is copied from the left operand (or from \argname{d1} for \texttt{A * d1}). When the left operand is \texttt{d1} with \texttt{mtype = 'DS'}, \texttt{LMATMUL} uses \texttt{BLAS} \texttt{dsymm}; otherwise \texttt{dgemm}. If the inner dimensions differ (\texttt{d1 \% n /= d2 \% m}), the program aborts via \texttt{matrix\_error} (exit status 1). For mixed \typename{DMatrix} $\times$ \typename{Matrix}, see Section~\ref{mat:op_matmul}.
+  \item \textbf{Matrix--Vector (\texttt{d1*u1}, \texttt{u1*d1})}: Returns a \typename{DVector} with \texttt{u2 \% name = u1 \% name} and bounds \texttt{d1\%is:d1\%ie} (for \texttt{d1 * u1}) or \texttt{d1\%js:d1\%je} (for \texttt{u1 * d1}). Calls \texttt{dgemv} (or \texttt{dgemv('T',...)}) and aborts via \texttt{matrix\_error} on a dimension mismatch.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{DMatrix, DVector, or real(8)(:,:), intent(in)}{Conformable real factors.}
+  \argitem{result}{type(DMatrix) or type(DVector), return value}{Allocated real matrix or vector product.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+type(DVector) :: u1, u2
+
+d1 = DMatrix('gaussian', 4, is=1)
+d2 = DMatrix('gaussian', 4, js=5)
+d3 = d1 * d2       ! d3 % v(1:4, 5:8)
+u1 = DVector('gaussian', 4)
+u2 = d1 * u1       ! u2 % v(1:4)
+\end{lstlisting}
+
+% ===================================================================
+% mmmult (DMatrix)
+% ===================================================================
+\manentry{Pure Generic Subroutine}{mmmult (DMatrix)}{DMatrix: mmmult}{High-performance zero-allocation BLAS subroutine for \texttt{DMatrix} multiplication}{dmat:mmmult}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mmmult(d1, d2, d3)   ! computes d3 % v = d1 % v . d2 % v
+\end{lstlisting}
+
+\manheading{Brief}
+Computes $D_3 = D_1 D_2$ into \argname{d3} (auto-allocating/resizing \argname{d3} if needed, or in-place with zero allocations when \argname{d3} already has matching shape).
+
+\manheading{Description}
+If \texttt{d3 \% v} is unallocated or its dimensions do not match (\texttt{d3 \% m /= d1 \% m .or. d3 \% n /= d2 \% n}), \procname{mmmult} automatically allocates or reconstructs \argname{d3} with bounds \texttt{d1 \% is : d1 \% ie, d2 \% js : d2 \% je}; if \argname{d3} is already allocated with conformable output shape, its existing bounds and \texttt{name} are preserved in-place. It calls \texttt{mmmult(d1 \% v, d2 \% v, d3 \% v, mtype = d1 \% mtype)} (dispatching to \texttt{dsymm} when \texttt{d1 \% mtype = 'DS'} and \texttt{dgemm} otherwise, after checking that \texttt{d1 \% n == d2 \% m}; otherwise the program stops with an \texttt{error stop} message naming the procedure (exit status 1)) and sets \texttt{d3 \% mtype = 'DG'} (since $D_1 D_2$ is not symmetric in general). Aliasing an input as the output (e.g.\ \lcodef{call mmmult(d1, d2, d1)}) is invalid because \argname{MATA}/\argname{MATB} are \texttt{intent(in)} and \argname{MATC} is \texttt{intent(inout)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Left $m \times k$ real factor (\texttt{mtype='DS'} selects \texttt{dsymm}).}
+  \argitem{MATB}{class(DMatrix), intent(in)}{Right $k \times n$ real factor.}
+  \argitem{MATC}{type(DMatrix), intent(inout)}{Destination $m \times n$ \typename{DMatrix} (auto-allocated/resized if needed; sets \texttt{mtype = 'DG'}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+
+d1 = DMatrix('gaussian', 128, mtype='DS')
+d2 = DMatrix('gaussian', 128)
+d3 = DMatrix(128)
+call mmmult(d1, d2, d3)
+\end{lstlisting}

@@ -1,0 +1,23 @@
+Downloaded from:  https://www.michaelwimmer.org/downloads.html  on 260421  (tried also https://github.com/xrq-phys/Pfapack but had some subtle bugs)
+
+
+cd fortran; cp makefile.gnu/intel/aris makefile; make clean; make
+
+
+--------------------------------------------------------------------------
+For Pfaffian:  (interfaces to allt types s/d/c/z f77 routines)
+skpfa.f90  : use f95_pfapack; call skpfa (M,pfaf)    M(:,:), scalar pfaff
+skpf10.f90 : use f95_pfapack; call skpf10(M,pfaff)   M(:,:),        pfaff(2)   pfaffian = pfaff(1) * 10**pfaff(2) 
+
+--------------------------------------------------------------------------
+Citation:
+@article{wimmer2012algorithm,
+    title={Efficient numerical computation of the pfaffian for dense and banded skew-symmetric matrices},
+    author={Michael Wimmer},
+    journal={ACM Transactions on Mathematical Software (TOMS)},
+    volume={38},
+    number={4},
+    pages={1--17},
+    year={2012},
+    publisher={ACM New York, NY, USA}
+}

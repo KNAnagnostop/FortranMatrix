@@ -1,0 +1,201 @@
+\contentsline {section}{\numberline {1}Usage}{8}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Compiling and Linking}{9}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Download}{9}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Module-Wide Error Handling and \texttt {mtype} Conventions}{10}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Module-Wide Public Variable and Utilities}{10}{subsection.1.4}%
+\contentsline {subsubsection}{\texttt {\textbf {f\textunderscore mout}} \textnormal {\footnotesize --- Default Fortran logical I/O unit used for module output, saving, and messages}}{10}{section*.2}%
+\contentsline {subsubsection}{\texttt {\textbf {matrix\textunderscore random\textunderscore init}} \textnormal {\footnotesize --- Seeds Fortran's intrinsic PRNG from \texttt {/dev/urandom} with a portable fallback}}{11}{section*.3}%
+\contentsline {subsubsection}{\texttt {\textbf {NaN}} \textnormal {\footnotesize --- Returns an IEEE quiet Not-a-Number scalar for real or complex assignments}}{12}{section*.4}%
+\contentsline {section}{\numberline {2}Class \texttt {Matrix}}{13}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Components}{13}{subsection.2.1}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix (type)}} \textnormal {\footnotesize --- Double-precision complex matrix class extending the private \texttt {MatrixClass}}}{13}{section*.5}%
+\contentsline {subsection}{\numberline {2.2}Constructors}{14}{subsection.2.2}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix (constructor)}} \textnormal {\footnotesize --- Constructs and allocates a \texttt {type(Matrix)} object (zero, constant, random, identity, or from 2D array)}}{14}{section*.6}%
+\contentsline {subsection}{\numberline {2.3}Component Procedures}{17}{subsection.2.3}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% save}} \textnormal {\footnotesize --- Writes matrix elements in plain text column-major format to a Fortran unit}}{17}{section*.7}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% read}} \textnormal {\footnotesize --- Reads matrix elements in plain text column-major order from a Fortran unit}}{17}{section*.8}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% print}} \textnormal {\footnotesize --- Pretty-prints a matrix, metadata summary, or Mathematica expression}}{18}{section*.9}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% random}} \textnormal {\footnotesize --- Fills a matrix with uniform random complex numbers, respecting \texttt {mtype='ZH'}}}{20}{section*.10}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% gaussian}} \textnormal {\footnotesize --- Fills a matrix with Gaussian random complex numbers, respecting \texttt {mtype='ZH'}}}{20}{section*.11}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% hermitian\textunderscore set}} \textnormal {\footnotesize --- Makes a square matrix Hermitian in-place and sets \texttt {mtype = 'ZH'}}}{21}{section*.12}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% traceless\textunderscore set}} \textnormal {\footnotesize --- Projects a square matrix onto its traceless part in-place}}{22}{section*.13}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% conjg}} \textnormal {\footnotesize --- Returns the element-wise complex conjugate $M^*$ as a new \texttt {Matrix}}}{23}{section*.14}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% transpose}} \textnormal {\footnotesize --- Returns the transpose $M^T$ as a new \texttt {Matrix}, swapping $m\leftrightarrow n$ and index bounds}}{23}{section*.15}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% hermitian, Matrix \% dagger}} \textnormal {\footnotesize --- Return the Hermitian conjugate $M^\dagger $ as a new \texttt {Matrix}}}{24}{section*.16}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% dagger}} \textnormal {\footnotesize --- Alias for \texttt {Matrix \% hermitian}}}{24}{section*.16}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% re, Matrix \% im}} \textnormal {\footnotesize --- Extract the real or imaginary part of a \texttt {Matrix} as a \texttt {DMatrix}}}{25}{section*.17}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix \% im}} \textnormal {\footnotesize --- Imaginary part of a \texttt {Matrix} as a \texttt {DMatrix}}}{25}{section*.17}%
+\contentsline {subsection}{\numberline {2.4}Operators}{26}{subsection.2.4}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: assignment(=)}} \textnormal {\footnotesize --- Assigns another matrix, array, or scalar to a \texttt {Matrix}}}{26}{section*.18}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: operator(+)}} \textnormal {\footnotesize --- Adds a \texttt {Matrix} with a scalar, complex 2D array, \texttt {Matrix}, or \texttt {DMatrix}}}{27}{section*.19}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: operator(-)}} \textnormal {\footnotesize --- Unary negation and binary subtraction involving a \texttt {Matrix}}}{28}{section*.20}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: scalar * and /}} \textnormal {\footnotesize --- Scalar multiplication and division for \texttt {Matrix} and complex-scaled \texttt {DMatrix}}}{29}{section*.21}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: operator(**)}} \textnormal {\footnotesize --- Computes element-wise exponentiation $(M_{ij})^x$ of a \texttt {Matrix}}}{30}{section*.22}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: matrix *}} \textnormal {\footnotesize --- BLAS-backed matrix--matrix and matrix--vector multiplication for \texttt {Matrix}}}{31}{section*.23}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: mmmult}} \textnormal {\footnotesize --- High-performance zero-allocation BLAS subroutine for \texttt {Matrix} multiplication}}{32}{section*.24}%
+\contentsline {subsection}{\numberline {2.5}Procedures}{33}{subsection.2.5}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: random\textunderscore number}} \textnormal {\footnotesize --- Overloaded uniform and Gaussian random matrix generator for \texttt {Matrix}}}{33}{section*.25}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: trace}} \textnormal {\footnotesize --- Computes the complex trace $\ensuremath {{\rm Tr\,}}M = \DOTSB \sum@ \slimits@ _i M_{ii}$ of a \texttt {Matrix}}}{34}{section*.26}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: trace2}} \textnormal {\footnotesize --- Computes $\ensuremath {{\rm Tr\,}}(M^2) = \DOTSB \sum@ \slimits@ _{i,j} M_{ij} M_{ji}$ in $O(N^2)$ operations}}{35}{section*.27}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: trace2c}} \textnormal {\footnotesize --- Computes the connected quadratic trace $\ensuremath {{\rm Tr\,}}(\tilde {M}^2)$ of the traceless part}}{35}{section*.28}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: norm}} \textnormal {\footnotesize --- Computes the normalized $L_1$ norm $\frac {1}{MN}\DOTSB \sum@ \slimits@ _{i,j}|M_{ij}|$}}{36}{section*.29}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: conjg, transpose, hermitian, symmetric}} \textnormal {\footnotesize --- Return the conjugate, transpose, or Hermitian conjugate of a \texttt {Matrix}}}{37}{section*.30}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: transpose}}}{37}{section*.30}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: hermitian}}}{37}{section*.30}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: symmetric}}}{37}{section*.30}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: traceless, traceless\textunderscore set}} \textnormal {\footnotesize --- Extracts or projects onto the traceless part $M - \frac {1}{N}(\ensuremath {{\rm Tr\,}}M) I_N$}}{38}{section*.31}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: traceless\textunderscore set}}}{38}{section*.31}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: hermitian\textunderscore set, symmetric\textunderscore set, antisymmetric\textunderscore set}} \textnormal {\footnotesize --- Enforce Hermiticity, symmetry, or antisymmetry in-place}}{38}{section*.32}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: symmetric\textunderscore set}}}{38}{section*.32}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: antisymmetric\textunderscore set}}}{38}{section*.32}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: isHermitian, isSymmetric, isAntiSymmetric}} \textnormal {\footnotesize --- Measure deviation of a \texttt {Matrix} from Hermiticity, symmetry, or antisymmetry}}{39}{section*.33}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: isSymmetric}}}{39}{section*.33}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: isAntiSymmetric}}}{39}{section*.33}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: diagonal, diagonalMatrix}} \textnormal {\footnotesize --- Extract matrix diagonals, construct diagonal matrices from vectors, or zero off-diagonals}}{40}{section*.34}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: diagonalMatrix}}}{40}{section*.34}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: real, aimag, mcmplx}} \textnormal {\footnotesize --- Convert between complex \texttt {Matrix} and real \texttt {DMatrix} parts}}{41}{section*.35}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: aimag}}}{41}{section*.35}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: mcmplx}}}{41}{section*.35}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: inverse}} \textnormal {\footnotesize --- Computes the matrix inverse $M^{-1}$ via \texttt {LAPACK} LU factorization}}{42}{section*.36}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: determinant}} \textnormal {\footnotesize --- Computes the determinant $\det M$ of a square \texttt {Matrix}}}{43}{section*.37}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: lndet}} \textnormal {\footnotesize --- Computes $\ln |\det M|$ and complex phase ${\rm e}^{i\arg (\det M)}$ without overflow}}{44}{section*.38}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: Pfaffian, lnPfaffian}} \textnormal {\footnotesize --- Compute the Pfaffian $\ensuremath {\text {Pf}\,}M$ or its log magnitude and phase for antisymmetric matrices}}{44}{section*.39}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: lnPfaffian}}}{44}{section*.39}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: eigenvalues}} \textnormal {\footnotesize --- Computes all eigenvalues of a square \texttt {Matrix} as a \texttt {Vector}}}{45}{section*.40}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: eigenvectors}} \textnormal {\footnotesize --- Computes eigenvalues and right eigenvectors of a square \texttt {Matrix}}}{46}{section*.41}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: abs}} \textnormal {\footnotesize --- Computes the element-wise complex modulus $|M_{ij}|$, returning a \texttt {DMatrix}}}{47}{section*.42}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: sin, cos, exp, log, sqrt}} \textnormal {\footnotesize --- Element-wise complex mathematical functions on \texttt {Matrix}}}{48}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: cos}}}{48}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: exp}}}{48}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: log}}}{48}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: sqrt}}}{48}{section*.43}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: metadata\textunderscore copy}} \textnormal {\footnotesize --- Copies matrix metadata without allocating or copying elements}}{49}{section*.44}%
+\contentsline {subsubsection}{\texttt {\textbf {Matrix: isNaN}} \textnormal {\footnotesize --- Tests whether any entry of a \texttt {Matrix} contains IEEE \texttt {NaN}}}{50}{section*.45}%
+\contentsline {section}{\numberline {3}Class \texttt {DMatrix}}{50}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Components}{51}{subsection.3.1}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix (type)}} \textnormal {\footnotesize --- Double-precision real matrix class extending the private \texttt {MatrixClass}}}{51}{section*.46}%
+\contentsline {subsection}{\numberline {3.2}Constructors}{52}{subsection.3.2}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix (constructor)}} \textnormal {\footnotesize --- Constructs and allocates a \texttt {type(DMatrix)} object (zero, constant, random, identity, or from 2D real array)}}{52}{section*.47}%
+\contentsline {subsection}{\numberline {3.3}Component Procedures}{53}{subsection.3.3}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% save}} \textnormal {\footnotesize --- Writes real matrix elements in plain text column-major order}}{53}{section*.48}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% read}} \textnormal {\footnotesize --- Reads real matrix elements in column-major order from a Fortran unit}}{54}{section*.49}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% print}} \textnormal {\footnotesize --- Pretty-prints a \texttt {DMatrix}, metadata summary, or Mathematica expression}}{55}{section*.50}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% random}} \textnormal {\footnotesize --- Fills a \texttt {DMatrix} with uniform random numbers in $[0,1)$, respecting \texttt {mtype='DS'}}}{56}{section*.51}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% gaussian}} \textnormal {\footnotesize --- Fills a \texttt {DMatrix} with Gaussian random numbers of std dev $\sigma $, respecting \texttt {'DS'}}}{57}{section*.52}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% symmetric\textunderscore set}} \textnormal {\footnotesize --- Symmetrizes a square \texttt {DMatrix} in-place and sets \texttt {mtype = 'DS'}}}{57}{section*.53}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% traceless\textunderscore set}} \textnormal {\footnotesize --- Makes a square \texttt {DMatrix} traceless in-place}}{58}{section*.54}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% transpose, DMatrix \% symmetric}} \textnormal {\footnotesize --- Return the transpose $D^T$ as a new \texttt {DMatrix}, swapping $m \leftrightarrow n$ and bounds}}{59}{section*.55}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix \% symmetric}}}{59}{section*.55}%
+\contentsline {subsection}{\numberline {3.4}Operators}{59}{subsection.3.4}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: assignment(=)}} \textnormal {\footnotesize --- Assigns another \texttt {DMatrix}, 2D real array, or scalar to a \texttt {DMatrix}}}{59}{section*.56}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: operator(+)}} \textnormal {\footnotesize --- Adds a \texttt {DMatrix} with a real scalar, 2D real array, or another \texttt {DMatrix}}}{61}{section*.57}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: operator(-)}} \textnormal {\footnotesize --- Unary negation and binary subtraction for \texttt {DMatrix}}}{61}{section*.58}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: scalar * and /}} \textnormal {\footnotesize --- Scalar multiplication and division for \texttt {DMatrix}}}{62}{section*.59}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: operator(**)}} \textnormal {\footnotesize --- Computes element-wise exponentiation $(D_{ij})^x$ of a \texttt {DMatrix}}}{63}{section*.60}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: matrix *}} \textnormal {\footnotesize --- BLAS-backed matrix--matrix and matrix--vector multiplication for \texttt {DMatrix}}}{64}{section*.61}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: mmmult}} \textnormal {\footnotesize --- High-performance zero-allocation BLAS subroutine for \texttt {DMatrix} multiplication}}{65}{section*.62}%
+\contentsline {subsection}{\numberline {3.5}Procedures}{66}{subsection.3.5}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: random\textunderscore number}} \textnormal {\footnotesize --- Overloaded uniform and Gaussian random matrix generator for \texttt {DMatrix}}}{66}{section*.63}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: trace, trace2, trace2c}} \textnormal {\footnotesize --- Compute $\ensuremath {{\rm Tr\,}}D$, $\ensuremath {{\rm Tr\,}}(D^2)$, and connected quadratic trace $\ensuremath {{\rm Tr\,}}(\tilde {D}^2)$}}{67}{section*.64}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: trace2}}}{67}{section*.64}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: trace2c}}}{67}{section*.64}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: norm}} \textnormal {\footnotesize --- Computes the normalized $L_1$ norm $\frac {1}{MN}\DOTSB \sum@ \slimits@ _{i,j}|D_{ij}|$}}{68}{section*.65}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: transpose, symmetric}} \textnormal {\footnotesize --- Return the transpose $D^T$ as a new \texttt {DMatrix}}}{68}{section*.66}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: symmetric}}}{68}{section*.66}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: traceless, traceless\textunderscore set}} \textnormal {\footnotesize --- Returns or sets in-place the traceless part $D - \frac {1}{N}(\ensuremath {{\rm Tr\,}}D) I_N$}}{69}{section*.67}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: traceless\textunderscore set}}}{69}{section*.67}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: symmetric\textunderscore set, antisymmetric\textunderscore set}} \textnormal {\footnotesize --- Make a square \texttt {DMatrix} symmetric or antisymmetric in-place}}{70}{section*.68}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: antisymmetric\textunderscore set}}}{70}{section*.68}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: isSymmetric, isAntiSymmetric}} \textnormal {\footnotesize --- Measure deviation of a \texttt {DMatrix} from symmetry or antisymmetry}}{70}{section*.69}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: isAntiSymmetric}}}{70}{section*.69}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: diagonal, diagonalMatrix}} \textnormal {\footnotesize --- Extract real diagonals, construct diagonal \texttt {DMatrix} from \texttt {DVector}, or zero off-diagonals}}{71}{section*.70}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: diagonalMatrix}}}{71}{section*.70}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: inverse}} \textnormal {\footnotesize --- Computes the matrix inverse $D^{-1}$ via \texttt {LAPACK} \texttt {dgetrf}/\texttt {dgetri}}}{72}{section*.71}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: determinant, lndet}} \textnormal {\footnotesize --- Compute $\det D$ or $(\ln |\det D|, \operatorname {sgn}(\det D))$ for a square \texttt {DMatrix}}}{73}{section*.72}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: lndet}}}{73}{section*.72}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: eigenvalues}} \textnormal {\footnotesize --- Computes all eigenvalues of a square \texttt {DMatrix}, returning a complex \texttt {Vector}}}{74}{section*.73}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: eigenvectors}} \textnormal {\footnotesize --- Computes eigenvalues (\texttt {Vector}) and right eigenvectors (\texttt {Matrix}) of a \texttt {DMatrix}}}{75}{section*.74}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: abs, sin, cos, exp, log, sqrt}} \textnormal {\footnotesize --- Element-wise real mathematical functions on \texttt {DMatrix}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: sin}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: cos}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: exp}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: log}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: sqrt}}}{76}{section*.75}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: metadata\textunderscore copy}} \textnormal {\footnotesize --- Copies metadata between \texttt {DMatrix} and \texttt {Matrix} objects without copying data}}{76}{section*.76}%
+\contentsline {subsubsection}{\texttt {\textbf {DMatrix: isNaN}} \textnormal {\footnotesize --- Tests whether any entry of a \texttt {DMatrix} is IEEE \texttt {NaN}}}{77}{section*.77}%
+\contentsline {section}{\numberline {4}Class \texttt {Vector}}{78}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Components}{78}{subsection.4.1}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector (type)}} \textnormal {\footnotesize --- Double-precision complex 1D vector class with index bounds and label metadata}}{78}{section*.78}%
+\contentsline {subsection}{\numberline {4.2}Constructors}{79}{subsection.4.2}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector (constructor)}} \textnormal {\footnotesize --- Constructs and allocates a \texttt {type(Vector)} (zero, constant, random, or from 1D complex array)}}{79}{section*.79}%
+\contentsline {subsection}{\numberline {4.3}Component Procedures}{80}{subsection.4.3}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% save, Vector \% read}} \textnormal {\footnotesize --- Plain-text sequential I/O for \texttt {Vector} elements}}{80}{section*.80}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% read}}}{80}{section*.80}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% print}} \textnormal {\footnotesize --- Pretty-prints a \texttt {Vector}, metadata info, or Mathematica list}}{81}{section*.81}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% random, Vector \% gaussian}} \textnormal {\footnotesize --- Fill a pre-allocated \texttt {Vector} with uniform or Gaussian complex random entries}}{82}{section*.82}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% gaussian}}}{82}{section*.82}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% conjg, Vector \% re, Vector \% im}} \textnormal {\footnotesize --- Return the complex conjugate, real part, or imaginary part of a \texttt {Vector}}}{83}{section*.83}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% re}}}{83}{section*.83}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector \% im}}}{83}{section*.83}%
+\contentsline {subsection}{\numberline {4.4}Operators}{84}{subsection.4.4}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: assignment(=)}} \textnormal {\footnotesize --- Assigns a \texttt {Vector}, \texttt {DVector}, 1D complex array, or scalar to a \texttt {Vector}}}{84}{section*.84}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: operator(+), operator(-)}} \textnormal {\footnotesize --- Element-wise addition, unary negation, and subtraction for \texttt {Vector}}}{85}{section*.85}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: operator(-)}}}{85}{section*.85}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: scalar *, /, **}} \textnormal {\footnotesize --- Scalar multiplication, scalar division, and element-wise power for \texttt {Vector}}}{86}{section*.86}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: operator(/)}}}{86}{section*.86}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: operator(**)}}}{86}{section*.86}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: Matrix * Vector}} \textnormal {\footnotesize --- Computes matrix--vector products $M v$ and $v^T M$ via \texttt {BLAS}}}{87}{section*.87}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: mvmult, vmmult}} \textnormal {\footnotesize --- Zero-allocation \texttt {BLAS} subroutines for \texttt {Matrix}--\texttt {Vector} multiplication}}{88}{section*.88}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: vmmult}}}{88}{section*.88}%
+\contentsline {subsection}{\numberline {4.5}Procedures}{89}{subsection.4.5}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: random\textunderscore number}} \textnormal {\footnotesize --- Overloaded uniform and Gaussian random generator for \texttt {Vector}}}{89}{section*.89}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: abs, sin, cos, exp, log, sqrt}} \textnormal {\footnotesize --- Element-wise mathematical functions on \texttt {Vector}}}{89}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: sin}}}{90}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: cos}}}{90}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: exp}}}{90}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: log}}}{90}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: sqrt}}}{90}{section*.90}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: dot\textunderscore product, sort, norm}} \textnormal {\footnotesize --- Inner product, Quicksort ordering, and normalized $L_1$ norm for \texttt {Vector}}}{90}{section*.91}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: sort}}}{90}{section*.91}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: norm}}}{90}{section*.91}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: mcmplx, metadata\textunderscore copy, isNaN}} \textnormal {\footnotesize --- Complex vector construction, metadata copy, and \texttt {NaN} detection}}{91}{section*.92}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: metadata\textunderscore copy}}}{91}{section*.92}%
+\contentsline {subsubsection}{\texttt {\textbf {Vector: isNaN}}}{91}{section*.92}%
+\contentsline {section}{\numberline {5}Class \texttt {DVector}}{92}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Components}{92}{subsection.5.1}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector (type)}} \textnormal {\footnotesize --- Double-precision real 1D vector class with index bounds and label metadata}}{92}{section*.93}%
+\contentsline {subsection}{\numberline {5.2}Constructors}{93}{subsection.5.2}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector (constructor)}} \textnormal {\footnotesize --- Constructs and allocates a \texttt {type(DVector)} (zero, constant, random, or from 1D real array)}}{93}{section*.94}%
+\contentsline {subsection}{\numberline {5.3}Component Procedures}{95}{subsection.5.3}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector \% save, DVector \% read, DVector \% print}} \textnormal {\footnotesize --- Sequential I/O and formatted display for \texttt {DVector}}}{95}{section*.95}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector \% read}}}{95}{section*.95}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector \% print}}}{95}{section*.95}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector \% random, DVector \% gaussian}} \textnormal {\footnotesize --- Fill a pre-allocated \texttt {DVector} with uniform or Gaussian real random numbers}}{96}{section*.96}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector \% gaussian}}}{96}{section*.96}%
+\contentsline {subsection}{\numberline {5.4}Operators}{96}{subsection.5.4}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: assignment(=)}} \textnormal {\footnotesize --- Assigns a \texttt {DVector}, \texttt {Vector}, 1D array, or scalar to a \texttt {DVector}}}{96}{section*.97}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: +, -, scalar *, /, **}} \textnormal {\footnotesize --- Real arithmetic and element-wise power operators for \texttt {DVector}}}{97}{section*.98}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: operator(+)}}}{98}{section*.98}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: operator(-)}}}{98}{section*.98}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: operator(/), operator(**)}}}{98}{section*.98}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: * and mvmult, vmmult}} \textnormal {\footnotesize --- Matrix--vector multiplication via \texttt {*} or zero-allocation \texttt {BLAS} subroutines}}{98}{section*.99}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: mvmult}}}{99}{section*.99}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: vmmult}}}{99}{section*.99}%
+\contentsline {subsection}{\numberline {5.5}Procedures}{100}{subsection.5.5}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: random\textunderscore number}} \textnormal {\footnotesize --- Overloaded uniform and Gaussian random generator for \texttt {DVector}}}{100}{section*.100}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: abs, sin, cos, exp, log, sqrt}} \textnormal {\footnotesize --- Element-wise real mathematical functions on \texttt {DVector}}}{100}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: sin}}}{101}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: cos}}}{101}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: exp}}}{101}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: log}}}{101}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: sqrt}}}{101}{section*.101}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: dot\textunderscore product, sort, maxval, minval, norm}} \textnormal {\footnotesize --- Inner product, Quicksort, extrema, and normalized $L_1$ norm for \texttt {DVector}}}{101}{section*.102}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: sort}}}{101}{section*.102}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: maxval}}}{101}{section*.102}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: minval}}}{101}{section*.102}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: norm}}}{101}{section*.102}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: metadata\textunderscore copy, isNaN}} \textnormal {\footnotesize --- Metadata copying and \texttt {NaN} testing for \texttt {DVector}}}{102}{section*.103}%
+\contentsline {subsubsection}{\texttt {\textbf {DVector: isNaN}}}{102}{section*.103}%
+\contentsline {section}{\numberline {6}Module \texttt {array\_mod}}{103}{section.6}%
+\contentsline {section}{\numberline {7}File Structure}{103}{section.7}%
+\contentsline {section}{\numberline {8}Performance}{104}{section.8}%

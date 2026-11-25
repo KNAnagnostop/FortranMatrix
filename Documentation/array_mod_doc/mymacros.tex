@@ -1,0 +1,240 @@
+%\newcommand{\part}{\partial}
+%\renewcommand{\Huge}{\Large} % προβλημα με ελληνικες γραμματοσειρες
+%\renewcommand{\huge}{\Large} % προβλημα με ελληνικες γραμματοσειρες
+%%\renewcommand\contentsname{ΠΕΡΙΕΧΟΜΕΝΑ}
+%%\renewcommand\listfigurename{ΚΑΤΑΛΟΓΟΣ ΤΩΝ ΕΙΚΟΝΩΝ}
+%%\renewcommand\listtablename{ΚΑΤΑΛΟΓΟΣ ΠΙΝΑΚΩΝ}
+%%%\newcommand\refname{ΑΝΑΦΟΡΕΣ}
+%%\renewcommand\refname{ΑΝΑΦΟΡΕΣ}
+%%\renewcommand\indexname{Index}
+%%\renewcommand\figurename{Σχήμα}
+%%\renewcommand\tablename{Πίνακας}
+%%\renewcommand\partname{Μέρος}
+%%\renewcommand\chaptername{ΚΕΦΑΛΑΙΟ}
+%%\renewcommand\appendixname{ΠΑΡΑΡΤΗΜΑ}
+%%%\newcommand\abstractname{ΠΕΡΙΛΗΨΗ}
+%%\renewcommand\abstractname{ΠΕΡΙΛΗΨΗ}
+%%\renewcommand\bibname{ΒΙΒΛΙΟΓΡΑΦΙΑ}
+%%\def\today{\number\day \space\ifcase\month\or
+%%  Ιανουαρίου \or Φεβρουαρίου\or Μαρτίου\or Απριλίου\or Μαΐου\or Ιουνίου\or
+%%  Ιουλίου\or Αυγούστου\or Σεπτεμβρίου\or Οκτωβρίου\or Νοεμβρίου\or
+%%  Δεκεμβρίου\fi 
+%%   \space\number\year}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                     math definitions
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand  {\e}       [1]{{\rm e}^{#1}}
+\newcommand  {\vev}     [1]{\ensuremath{\langle #1 \rangle}}
+\newcommand  {\veveq}   [1]{\ensuremath{{\langle #1 \rangle}_{\mbox{\scriptsize eq}}}}
+\newcommand  {\norm}    [1]{\ensuremath{\left\lVert #1 \right\rVert}}  % double vertical line norm like ||x||
+\newcommand  {\rf}      [1]{(\ref{#1})}
+\newcommand  {\eq}      [1]{Eq.(\protect\ref{#1})}
+\newcommand  {\eqs}     [2]{Eqs.(\protect\ref{#1})--(\protect\ref{#2})}
+\newcommand  {\fig}     [1]{Figure \protect\ref{#1}}
+\newcommand  {\figs}    [2]{Figures \protect\ref{#1} -- \protect\ref{#2}}
+\newcommand  {\tbl}     [1]{Table  \protect\ref{#1}}
+\newcommand  {\code}    [1]{\colorbox{listinggray}{{\tt #1}}}                           % \definecolor{listinggray}{gray}{0.9}  -- defined below
+\newcommand  {\lcode}   [1]{\colorbox{listinggray}{\lstinline[language=bash       ]{#1}}}   
+\newcommand  {\lcodeb}  [1]{\colorbox{listinggray}{\lstinline[language=bash       ]{#1}}}   
+\newcommand  {\lcodef}  [1]{\colorbox{listinggray}{\lstinline[language=Fortran    ]{#1}}}    
+\newcommand  {\lcodec}  [1]{\colorbox{listinggray}{\lstinline[language=C          ]{#1}}}   
+\newcommand  {\lcodea}  [1]{\colorbox{listinggray}{\lstinline[language=Awk        ]{#1}}}   
+\newcommand  {\lcodeg}  [1]{\colorbox{listinggray}{\lstinline[language=Gnuplot    ]{#1}}}   
+\newcommand  {\lcodem}  [1]{\colorbox{listinggray}{\lstinline[language=Mathematica]{#1}}}   
+\newcommand  {\cbox}    [1]{\colorbox{listinggray}{{\tt #1}}}                           
+\renewcommand{\implies}    {\ensuremath{\Rightarrow}}
+\newcommand  {\nn}         {\nonumber\\}
+\newcommand  {\ket}     [1]{\ensuremath{\,| #1 \rangle}}
+\newcommand  {\bra}     [1]{\ensuremath{\langle #1 |\,}}
+\newcommand  {\braket}  [2]{\ensuremath{\langle #1 | #2 \rangle}}
+\newcommand  {\calO}       {\ensuremath{\mathcal{O}}}
+\newcommand  {\calA}       {\ensuremath{\mathcal{A}}}
+\newcommand  {\calM}       {\ensuremath{\mathcal{M}}}
+\newcommand  {\calD}       {\ensuremath{\mathcal{D}}}
+\newcommand  {\calN}       {\ensuremath{\mathcal{N}}}
+\newcommand  {\calQ}       {\ensuremath{\mathcal{Q}}}
+\newcommand  {\smbox}   [1]{\ensuremath{\mbox{\eng{\scriptsize{#1}}}}}
+\newcommand  {\embox}   [1]{\ensuremath{\mbox{\eng{{#1}}}}}
+\newcommand  {\padd}       {\ensuremath{P_{\smbox{add}}}}
+\newcommand  {\abs}     [1]{\ensuremath{\left| #1 \right|}}
+\newcommand  {\pd}      [2]{\ensuremath{\frac{\partial   #1}{\partial #2}}}
+\newcommand  {\pdd}     [2]{\ensuremath{\frac{\partial^2 #1}{\partial {#2}^2}}}
+\newcommand  {\tr}         {\ensuremath{{\rm tr\,}}}
+\newcommand  {\Tr}         {\ensuremath{{\rm Tr\,}}}
+\newcommand  {\Reals}      {\ensuremath{\mathbb{R}}}
+\newcommand  {\Complexes}  {\ensuremath{\mathbb{C}}}
+\newcommand  {\Naturals}   {\ensuremath{\mathbb{N}}}
+\newcommand  {\Rationals}  {\ensuremath{\mathbb{Q}}}
+\newcommand  {\Integers}   {\ensuremath{\mathbb{Z}}}
+\newcommand  {\UnitMatrix} {\ensuremath{\mathbb{I}}}
+\newcommand  {\el}         {\ensuremath{\in}}        % Mathematica notation
+\renewcommand{\Re}         {\ensuremath{\mbox{Re}}}
+\renewcommand{\Im}         {\ensuremath{\mbox{Im}}}
+%\newcommand  {\Seff}       {\ensuremath{S_{\text{\scriptsize{eff}}}}}
+%\newcommand  {\tSeff}      {\ensuremath{\tilde{S}_{\text{\scriptsize{eff}}}}}
+\newcommand  {\Seff}       {\ensuremath{S_{\text{eff}}}}
+\newcommand  {\tSeff}      {\ensuremath{\tilde{S}_{\text{eff}}}}
+\newcommand  {\dtau}       {\ensuremath{d\tau}}
+\newcommand  {\taut}       {\ensuremath{\tau_{\mbox{\scriptsize aut}}}}
+\newcommand  {\tint}       {\ensuremath{\tau_{\mbox{\scriptsize int}}}}
+\newcommand  {\MyPhi}      {\ensuremath{P}}                             % notation of pdf of stochastic variables
+\newcommand  {\MyPhieq}    {\ensuremath{\MyPhi_{\mbox{\scriptsize eq}}}}
+\newcommand  {\mscript} [2]{\ensuremath{{#1}_{\mbox{\scriptsize #2}}}}
+\newcommand  {\mscr}    [2]{\ensuremath{{#1}_{\mbox{\scriptsize #2}}}}
+\newcommand  {\Pf}         {\ensuremath{\text{Pf}\,}}
+\newcommand  {\PfM}         {\ensuremath{\text{Pf}\,\mathcal{M}}}
+\newcommand  {\detM}        {\ensuremath{\det\mathcal{M}}}
+\newcommand  {\detD}        {\ensuremath{\det\mathcal{D}}}
+\newcommand  {\mf}          {\ensuremath{m_{\text{f}}}}
+\newcommand  {\ncg}         {\ensuremath{N_{\text{cg}}}}
+\newcommand  {\NS}          {\ensuremath{\mathscr{D}}}  % symbol for spinor dimensionality 2^{D/2-1}. Choices: N_S,N_s, \mathscr{D}, \mathfrak{D}, d_s
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% tofo notes: \usepackage[colorinlistoftodos,shadow]{todonotes}, \listoftodos, \todo[optios]{text}, \missingfigure[figwidth=0.5\textwidth]{text}, \todo[inline,size=\Large,color=red!40]{#1} (option disable: \usepackage[disable,...]{todonotes})
+\usepackage[colorinlistoftodos,shadow]{todonotes}
+\newcommand {\XXX}     [1]{\todo[size=\tiny,color=green!40]{#1}}
+\newcommand {\XXXS}    [1]{\todo[size=\small,color=green!40]{#1}}
+\newcommand {\XXXs}    [1]{\todo[size=\tiny ,color=green!40]{#1}}
+\newcommand {\XXXi}    [1]{\todo[inline,color=green!40]{#1}}
+\newcommand {\XXXX}    [1]{\todo[inline,color=green!40]{#1}}
+\newcommand {\XXXtodo} [1]{\todo{#1}}
+\newcommand {\XXXred}  [1]{\todo[size=\small,color=red!40]{#1}}
+\newcommand {\XXXXXX}  [1]{\todo[inline,size=\Large,color=red!40]{#1}}
+\newcommand {\XXXref}  [1]{\todo[size=\small,linecolor=green!70!white,backgroundcolor=blue!20!white,bordercolor=red]{Add Ref.: #1}}
+\newcommand {\XXXfig}  [1]{\todo[inline,color=green!40]{#1}} %insert in captions
+\newcommand {\XXXtab}  [1]{\todo[inline,color=green!40]{#1}}
+\newcommand {\XXXaddfig}[1]{\missingfigure[figwidth=0.5\textwidth]{#1}}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% index alias:
+\newcommand {\ii}      [1]{\index{#1}}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Other packages:
+\usepackage{booktabs} % For tables in chapter 06_Parallel
+%\usepackage{afterpage} % For big floats placement. Use \afterpage{ \begin{figure}[!htb] ...  \end{figure} }
+\usepackage{float}    % For big floats. use  \begin{figure}[H] to actually place it here!
+\usepackage{mathrsfs} % \mathscr{D}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                     hyphenation
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\hyphenation{every-where}
+\hyphenation{Lan-ge-vin}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                     include subsubsections
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Code listing: 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\usepackage{listings}
+% /usr/share/doc/texlive-doc/latex/listings/listings.pdf
+% Languages: C, Fortran, [77]Fortran,  Gnuplot, Awk, csh, TeX,
+% LaTeX,make, Perl, Lisp,HTML....
+%\usepackage{color}
+%%\lstset{language=Gnuplot,alsolanguage=csh,basicstyle=\scriptsize,deletekeywords={gawk,emacs},morekeywords={print,printf}}
+%%\begin{lstlisting}[caption={Hello there},label=lbl]
+%%\begin{lstlisting}[title={My title}]
+%% ..................
+%%\end{lstlisting}
+\definecolor{listinggray}{gray}{0.9}
+\definecolor{lbcolor}{rgb}{0.9,0.9,0.9}
+\lstset{
+        backgroundcolor=\color{lbcolor},
+        tabsize=4,
+        rulecolor=,
+        language=Fortran,
+        basicstyle=\footnotesize,%\scriptsize,
+        upquote=true,
+        aboveskip={1.5\baselineskip},
+        columns=fixed,
+        showstringspaces=false,
+        extendedchars=true,
+        inputencoding=utf8x,
+        breaklines=true,
+        prebreak = \raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+        frame=single,
+        showtabs=false,
+        showspaces=false,
+        showstringspaces=false,
+        identifierstyle=\ttfamily,
+        keywordstyle=\color[rgb]{0,0,1},
+        commentstyle=\color[rgb]{0.133,0.545,0.133},
+        stringstyle=\color[rgb]{0.627,0.126,0.941},
+}
+% from /usr/share/texlive/texmf-dist/tex/latex/listings/lstlang1.sty
+\lstdefinelanguage[95]{Fortran}[77]{Fortran}%
+  {deletekeywords=SAVE,%
+   morekeywords={subroutine,ACTION,ADVANCE,ALLOCATE,ALLOCATABLE,ASSIGNMENT,CASE,%
+      CONTAINS,CYCLE,DEALLOCATE,DEFAULT,DELIM,EXIT,INCLUDE,IN,NONE,IN,%
+      OUT,INTENT,INTERFACE,IOLENGTH,KIND,LEN,MODULE,NAME,NAMELIST,NMT,%
+      NULLIFY,ONLY,OPERATOR,OPTIONAL,OUT,PAD,POINTER,POSITION,PRIVATE,%
+      PUBLIC,READWRITE,RECURSIVE,RESULT,SELECT,SEQUENCE,SIZE,STAT,%
+      TARGET,USE,WHERE,WHILE,BLOCKDATA,DOUBLEPRECISION,%
+      ENDBLOCKDATA,ENDFILE,ENDFUNCTION,ENDINTERFACE,%
+      ENDMODULE,ENDPROGRAM,ENDSELECT,ENDSUBROUTINE,ENDTYPE,ENDWHERE,%
+      INOUT,SELECTCASE,FORALL,RESHAPE,SUM,PRODUCT,ELSEWHERE,%
+      sin,cos,tan,atan2,exp,cexp,dexp,cdexp,log,abs,conjg,dconjg,%
+      dble,dimag,cdabs,imag,tiny,huge,epsilon,range,trim,atan,pure,%
+      ifdef,ifndef,define,endif,elif,%
+      MATMUL,TRANSPOSE,UBOUND,LBOUND,SAVE,%
+      MPI_LOGICAL,MPI_INTEGER,MPI_INTEGER8,MPI_REAL,MPI_REAL8,MPI_COMPLEX,MPI_COMPEX16,MPI_CHARACTER,MPI_STATUS_IGNORE,%
+      MPI_SUM,MPI_PROD,MPI_MAX,MPI_MIN,%
+      concurrent,CONCURRENT,random_number,%
+      co_broadcast,co_sum,co_max,com_min,co_reduce,sync,all,this_image,image_index,num_images,error,lcobound,ucobound,codimension,%
+      mpi_init,mpi_comm_size,mpi_comm_rank,mpi_finalize,mpi_gather,mpi_allgather,mpi_send,mpi_recv,%
+      mpi_reduce,mpi_allreduce,MPI_COMM_WORLD,mpi_bcast,mpi_wtime,mpi_get_count,mpi_scatter,mpi_barrier,mpi_sendrecv,MPI_TAG,MPI_SOURCE,%
+      mpi_comm_group,mpi_group_incl,mpi_comm_create,mpi_comm_split,mpi_comm_null,mpi_comm_free,mpi_sendrecv_replace,%
+      blacs_get,blacs_gridinit,blacs_gridinfo,blacs_exit,blacs_pinfo,blacs_barrier,blacs_exit,blacs_pnum,blacs_gridmap,%
+      pdelget,pdelset,pdtran,dgemm,pdgemm,numroc,descinit,zheev,pzheev,dsyev,pdsyev,%
+      mpiu_init,mpiu_end,mpiu_sync,mpiu_abort,mpiu_world_set,mpiu_bcast,mpiu_scatter,mpiu_gather,mpiu_sndrcv,mpiu_sum,mpiu_prod,%
+      indxl2g,indxg2l,indxg2p},%
+   deletecomment=[f],% no fixed comment line: 1998 Magne Rudshaug
+   morecomment=[l]!%
+  }%
+%% csh definition (c) 1998 Kai Below
+%%
+\lstdefinelanguage{csh}
+  {morekeywords={alias,awk,cat,echo,else,end,endif,endsw,exec,exit,%
+      foreach,glob,goto,history,if,logout,nice,nohup,onintr,repeat,sed,%
+      set,setenv,shift,source,switch,then,time,while,umask,unalias,%
+      unset,wait,while,@,env,argv,child,home,ignoreeof,noclobber,%
+      noglob,nomatch,path,prompt,shell,status,verbose,print,printf,%
+      sqrt,BEGIN,END,gfortran,ls,rm,less,chmod,perl,cd,pwd,mkdir,rmdir,%
+      sed,cp,mv,which,where,whatis,cmd,man,info,locate,head,tail,sort,grep,%
+      gawk,emacs,du,df,top,ps,sudo,apt-get},%
+   morecomment=[l]\#,%
+   morestring=[d]"%
+  }[keywords,comments,strings]%
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Making emacs refcard table in 01computer.tex
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% We assume 3 columns in the table. Change multicolumn commands and &
+% appropriately if changed
+\usepackage{longtable}
+\newcommand{\emtentry}   [1]{      \multicolumn{3}{l}{\parbox[t]{10cm}{\scriptsize{\eng{#1}}}}\\}
+\newcommand{\emtsection} [1]{\hline\multicolumn{3}{l}{\eng{\bfseries{{#1}}}}\\\hline}
+\newcommand{\emtkey}     [2]{\eng{\scriptsize{#1}} & \engt{\scriptsize{#2}} & \\}
+\newcommand{\kbd}        [1]{{\tt\scriptsize {#1}}\null}
+\newcommand{\emtthreecol}[3]{\eng{\scriptsize{#1}}&\engt{\scriptsize{#2}}&\engt{\scriptsize{#3}}\\}
+%\newcommand{\emtkey}[2]{\eng{#1} & \multicolumn{2}{l}{\engt{#2}}\\}
+% refer to problems: askhseis:
+\newcommand{\pref}[1]{\thechapter.\ref{#1}}
+
+\newenvironment{latintext}{}{}
+%\newcommand{\latintext}{}
+\newcommand{\greektext}{}
+
+\usepackage{rotating}
+% rotate tables:
+%%\begin{sidewaystable}
+%%    \centering
+%%    \caption{Your caption here}
+%%   \begin{tabular}{ll}
+%%    First First & First Second\\
+%%    Second First & Second Second
+%%    \end{tabular}
+%%\end{sidewaystable}

@@ -1,0 +1,839 @@
+% ===================================================================
+% Section 2 (cont.): Class Matrix - Procedures
+% ===================================================================
+\subsection{Procedures}
+\label{subsec:mat_procs}
+
+This subsection documents all standalone generic and module procedures operating on \typename{type(Matrix)} arguments.
+
+\mansubgroup{Random Numbers}
+
+% ===================================================================
+% random_number (Matrix)
+% ===================================================================
+\manentry{Generic Subroutine}{random\_number (Matrix)}{Matrix: random\textunderscore number}{Overloaded uniform and Gaussian random matrix generator for \texttt{Matrix}}{mat:random_number}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call random_number(mat)          ! uniform random numbers in [0,1) + i[0,1)
+call random_number(mat, sigma)   ! Gaussian random numbers with std dev sigma
+\end{lstlisting}
+
+\manheading{Brief}
+Fills a pre-allocated \typename{type(Matrix)} with uniformly or normally distributed random complex numbers via Fortran's overloaded \procname{random\_number} intrinsic.
+
+\manheading{Description}
+\modname{matrix\_mod\_matrix} extends Fortran's \procname{random\_number} with two overloads for \typename{type(Matrix)}:
+\begin{itemize}
+  \item \lcodef{call random_number(mat)}: Calls \procname{mat \% random()}, filling \texttt{mat \% v} with uniform $[0,1) + i[0,1)$ values while preserving Hermiticity if \texttt{mat \% mtype = 'ZH'} (negative imaginary parts in upper triangle; see Section~\ref{mat:random}).
+  \item \lcodef{call random_number(mat, sigma)}: Calls \procname{mat \% gaussian(sigma=sigma)}, filling \texttt{mat \% v} with Gaussian variates of standard deviation \argname{sigma} and properly Hermitianizing if \texttt{mat \% mtype = 'ZH'} (see Section~\ref{mat:gaussian}). Note that \argname{sigma} is mandatory in this overload (to disambiguate it from \texttt{random\_number(mat)}); pass \texttt{sigma} positionally or by keyword.
+\end{itemize}
+Both forms abort via \texttt{matrix\_error} if \texttt{mat \% v} has not been allocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Pre-allocated matrix to fill with random entries.}
+  \argitem{sigma}{real(8)}{Target Gaussian standard deviation (non-optional in the Gaussian overload).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: mat
+
+call matrix_random_init
+mat = Matrix(8, mtype='ZH')
+call random_number(mat)              ! uniform Hermitian
+call random_number(mat, sigma=1.0_8) ! Gaussian Hermitian
+\end{lstlisting}
+
+\mansubgroup{Matrix Operations}
+
+% ===================================================================
+% trace (Matrix)
+% ===================================================================
+\manentry{Pure Generic Function}{trace (Matrix)}{Matrix: trace}{Computes the complex trace $\Tr M = \sum_i M_{ii}$ of a \texttt{Matrix}}{mat:trace}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = trace(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the sum of the main-diagonal elements of a square \typename{type(Matrix)} \argname{m1} as a \typename{complex(8)} scalar.
+
+\manheading{Description}
+Calls \modname{matrix\_mod\_array}'s \procname{trace(m1 \% v)}, returning $\sum_{i=1}^{N} M_{ii}$ independently of custom index bounds \texttt{is, js}. Returns \procname{NaN} if \argname{m1} is non-square ($m \neq n$).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix.}
+  \argitem{r}{complex(8), scalar, return value}{Trace $\Tr M$, or \procname{NaN} if non-square.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: z
+
+m1 = Matrix('gaussian', 8)
+z  = trace(m1)
+\end{lstlisting}
+
+% ===================================================================
+% trace2 (Matrix)
+% ===================================================================
+\manentry{Pure Generic Function}{trace2 (Matrix)}{Matrix: trace2}{Computes $\Tr(M^2) = \sum_{i,j} M_{ij} M_{ji}$ in $O(N^2)$ operations}{mat:trace2}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = trace2(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluates $\Tr(M^2)$ directly from matrix elements in $O(N^2)$ operations without matrix multiplication, accelerating Hermitian matrices automatically via \texttt{m1 \% mtype}.
+
+\manheading{Description}
+Calls \procname{trace2(m1 \% v, mtype = m1 \% mtype)}. When \texttt{m1 \% mtype = 'ZH'}, unit-stride evaluation $\sum_{i,j} |M_{ij}|^2$ is used instead of strided indexing $\sum_{i,j} M_{ij} M_{ji}$. Note that unlike \modname{array\_mod}, \modname{matrix\_mod\_matrix} overloads only the single-matrix \texttt{trace2(m1)} form for \typename{Matrix} (not two-matrix \texttt{trace2(m1, m2)}). Returns \procname{NaN} if \argname{m1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix whose \texttt{mtype} selects the fast Hermitian path if \texttt{'ZH'}.}
+  \argitem{r}{complex(8), scalar, return value}{Quadratic trace $\Tr(M^2)$ (or \procname{NaN} if non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: z
+
+m1 = Matrix('gaussian', 16, mtype='ZH')
+z  = trace2(m1)     ! uses m1 % mtype = 'ZH' automatically
+\end{lstlisting}
+
+% ===================================================================
+% trace2c (Matrix)
+% ===================================================================
+\manentry{Pure Generic Function}{trace2c (Matrix)}{Matrix: trace2c}{Computes the connected quadratic trace $\Tr(\tilde{M}^2)$ of the traceless part}{mat:trace2c}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = trace2c(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes $\Tr\!\left[\left(M - \frac{\Tr M}{N} I_N\right)^2\right]$, subtracting the center-of-mass trace mode.
+
+\manheading{Description}
+Delegates to \procname{trace2c(m1 \% v, mtype = m1 \% mtype)}, creating a local traceless copy $\tilde{M}$ and evaluating $\Tr(\tilde{M}^2)$ using the fast Hermitian formula whenever \texttt{m1 \% mtype = 'ZH'}. Returns \procname{NaN} if \argname{m1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix.}
+  \argitem{r}{complex(8), scalar, return value}{Connected quadratic trace $\Tr(\tilde{M}^2)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: zc
+
+m1 = Matrix('gaussian', 16, mtype='ZH')
+zc = trace2c(m1)
+\end{lstlisting}
+
+% ===================================================================
+% norm (Matrix)
+% ===================================================================
+\manentry{Generic Function}{norm (Matrix)}{Matrix: norm}{Computes the normalized $L_1$ norm $\frac{1}{MN}\sum_{i,j}|M_{ij}|$}{mat:norm}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = norm(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the mean element-wise modulus \texttt{SUM(ABS(m1 \% v)) / SIZE(m1 \% v)} as a \typename{real(8)} scalar.
+
+\manheading{Description}
+Invokes the underlying rank-2 norm \texttt{array2\_norm(m1 \% v)}, giving a size-independent measure of matrix magnitude useful for convergence and residual checks.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Allocated complex matrix.}
+  \argitem{r}{real(8), scalar, return value}{Mean modulus $\ge 0$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+real(8)      :: err
+
+m1  = Matrix('gaussian', 8)
+err = norm(m1 - transpose(transpose(m1)))
+\end{lstlisting}
+
+% ===================================================================
+% conjg, transpose, hermitian, symmetric (Matrix)
+% ===================================================================
+\manentry{Generic Functions}{conjg, transpose, hermitian, symmetric (Matrix)}{Matrix: conjg, transpose, hermitian, symmetric}{Return the conjugate, transpose, or Hermitian conjugate of a \texttt{Matrix}}{mat:conj_trans_herm}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: transpose}}}{Matrix: transpose}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: hermitian}}}{Matrix: hermitian}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: symmetric}}}{Matrix: symmetric}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = conjg    (m1)   ! element-wise complex conjugate M^* (same m,n,is,js)
+m2 = transpose(m1)   ! transpose M^T (swaps m <-> n and is <-> js)
+m2 = hermitian(m1)   ! conjugate transpose M^dagger (swaps m <-> n, is <-> js)
+m2 = symmetric(m1)  ! alias for transpose(m1): returns M^T (no symmetrization)
+\end{lstlisting}
+
+\manheading{Brief}
+Functional equivalents of \procname{m1 \% conjg()}, \procname{m1 \% transpose()}, and \procname{m1 \% hermitian()} returning a new \typename{type(Matrix)}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{conjg(m1)}: Allocates \argname{m2} with identical metadata and computes \texttt{CONJG(m1 \% v)}.
+  \item \procname{transpose(m1)} and \procname{symmetric(m1)}: Both bind to \texttt{matrix\_return\_transpose}, allocating an $n \times m$ matrix with swapped dimensions and bounds (\texttt{m <-> n}, \texttt{is <-> js}, \texttt{ie <-> je}), preserving \texttt{mtype} and \texttt{name}, and computing \texttt{TRANSPOSE(m1 \% v)}. Note that \procname{symmetric(m1)} returns $M^T$ without symmetrizing $M$; use \procname{symmetric\_set} for in-place symmetrization.
+  \item \procname{hermitian(m1)}: Allocates an $n \times m$ matrix with swapped dimensions and bounds (\texttt{m <-> n}, \texttt{is <-> js}) and computes \texttt{TRANSPOSE(CONJG(m1 \% v))}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Input matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Transformed \typename{Matrix} with preserved \texttt{mtype} and \texttt{name}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+
+m1 = Matrix('gaussian', 3, 5)
+m2 = hermitian(m1)    ! 5x3 conjugate transpose
+m3 = conjg(m1)        ! 3x5 complex conjugate
+\end{lstlisting}
+
+% ===================================================================
+% traceless and traceless_set (Matrix)
+% ===================================================================
+\manentry{Pure Generic Function / Subroutine}{traceless, traceless\_set (Matrix)}{Matrix: traceless, traceless\textunderscore set}{Extracts or projects onto the traceless part $M - \frac{1}{N}(\Tr M) I_N$}{mat:traceless}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: traceless\textunderscore set}}}{Matrix: traceless\textunderscore set}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = traceless(m1)     ! pure function: returns traceless copy of m1
+call traceless_set(m1) ! pure subroutine: makes m1 traceless in-place
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a traceless copy (\procname{traceless}) or modifies a square \typename{Matrix} in-place (\procname{traceless\_set}) so that $\Tr M = 0$.
+
+\manheading{Description}
+\procname{traceless(m1)} copies all metadata from \argname{m1} (including \texttt{mtype} and \texttt{name}) to \argname{m2} and sets \texttt{m2 \% v = traceless(m1 \% v)}. \procname{traceless\_set(m1)} mutates \texttt{m1 \% v} in-place via \texttt{call traceless\_set(m1 \% v)}. Both are \texttt{pure} and fill the data array with \procname{NaN} if \argname{m1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in) or intent(inout)}{Input matrix (\texttt{intent(in)} for \procname{traceless}; \texttt{intent(inout)} for \procname{traceless\_set}).}
+  \argitem{MATB}{type(Matrix), return value}{Allocated traceless \typename{Matrix} (for \procname{traceless} only).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('gaussian', 6, mtype='ZH')
+m2 = traceless(m1)         ! m2 has zero trace, mtype='ZH'
+call traceless_set(m1)     ! m1 modified in-place
+\end{lstlisting}
+
+% ===================================================================
+% hermitian_set, symmetric_set, antisymmetric_set (Matrix)
+% ===================================================================
+\manentry{Generic Subroutines}{hermitian\_set, symmetric\_set, antisymmetric\_set (Matrix)}{Matrix: hermitian\textunderscore set, symmetric\textunderscore set, antisymmetric\textunderscore set}{Enforce Hermiticity, symmetry, or antisymmetry in-place}{mat:sym_set}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: symmetric\textunderscore set}}}{Matrix: symmetric\textunderscore set}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: antisymmetric\textunderscore set}}}{Matrix: antisymmetric\textunderscore set}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call hermitian_set    (m1, [uplo])   ! sets M = M^dagger and m1 % mtype = 'ZH'
+call symmetric_set    (m1, [uplo])   ! sets M = M^T
+call antisymmetric_set(m1, [uplo])   ! sets M = -M^T (zeros diagonal)
+\end{lstlisting}
+
+\manheading{Brief}
+Modify a square \typename{Matrix} in-place to be Hermitian ($M = M^\dagger$), complex symmetric ($M = M^T$), or complex antisymmetric ($M = -M^T$).
+
+\manheading{Description}
+All three routines accept an optional \argname{uplo} selector controlling how the matrix is symmetrized:
+\begin{itemize}
+  \item If \argname{uplo(1:1)} is \texttt{'U'}/\texttt{'u'} or \texttt{'L'}/\texttt{'l'}, the upper or lower triangle of \texttt{m1 \% v} is preserved and mirrored into the opposite triangle (conjugating for \procname{hermitian\_set}, negating and zeroing the diagonal for \procname{antisymmetric\_set}).
+  \item Otherwise (including when \argname{uplo} is omitted), the projection $\frac{1}{2}(M + \mathrm{op}(M^T))$ is applied ($\mathrm{op} = \mathrm{CONJG}$ for Hermitian, $+$ for symmetric, $-$ for antisymmetric).
+\end{itemize}
+\procname{hermitian\_set}, \procname{symmetric\_set}, and \procname{antisymmetric\_set} all validate allocation and squareness (aborting via \texttt{matrix\_error} on failure) and update \texttt{m1 \% mtype}: \procname{hermitian\_set} sets \texttt{m1 \% mtype = 'ZH'}, whereas \procname{symmetric\_set} and \procname{antisymmetric\_set} set \texttt{m1 \% mtype = 'ZG'} (since complex symmetric and antisymmetric matrices are not Hermitian in general).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Square \typename{Matrix} transformed in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{\texttt{'U'} (keep upper), \texttt{'L'} (keep lower), or omitted/other (average with transpose/adjoint).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+
+m1 = Matrix('gaussian', 6)
+call hermitian_set(m1)            ! m1 becomes Hermitian, mtype='ZH'
+call antisymmetric_set(m1, 'L')   ! mirror lower triangle with minus sign
+\end{lstlisting}
+
+% ===================================================================
+% isHermitian, isSymmetric, isAntiSymmetric (Matrix)
+% ===================================================================
+\manentry{Generic Functions}{isHermitian, isSymmetric, isAntiSymmetric (Matrix)}{Matrix: isHermitian, isSymmetric, isAntiSymmetric}{Measure deviation of a \texttt{Matrix} from Hermiticity, symmetry, or antisymmetry}{mat:is_sym}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: isSymmetric}}}{Matrix: isSymmetric}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: isAntiSymmetric}}}{Matrix: isAntiSymmetric}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = isHermitian    (m1)   ! norm( m1 - hermitian(m1) )
+r = isSymmetric    (m1)   ! norm( m1 - transpose(m1) )
+r = isAntiSymmetric(m1)   ! norm( m1 + transpose(m1) )
+\end{lstlisting}
+
+\manheading{Brief}
+Return a non-negative \typename{real(8)} residual norm quantifying how close \argname{m1} is to being Hermitian, symmetric, or antisymmetric.
+
+\manheading{Description}
+Calling \modname{matrix\_mod\_array}'s underlying checks on \texttt{m1 \% v}, these functions return $0.0$ (up to floating-point rounding) when \argname{m1} satisfies the corresponding symmetry, or \procname{NaN} if \argname{m1} is non-square:
+\begin{align}
+  \texttt{isHermitian}(M)     &= \texttt{norm}(M - M^\dagger)\, , \qquad
+  \texttt{isSymmetric}(M)      = \texttt{norm}(M - M^T)\, , \nonumber \\
+  \texttt{isAntiSymmetric}(M) &= \texttt{norm}(M + M^T)\, .
+\end{align}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Input square matrix.}
+  \argitem{r}{real(8), scalar, return value}{Normalized $L_1$ deviation ($\ge 0$, or \procname{NaN} if non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+
+m1 = Matrix('gaussian', 8, mtype='ZH')
+print *, 'Hermiticity residual:', isHermitian(m1)
+\end{lstlisting}
+
+% ===================================================================
+% diagonal and diagonalMatrix (Matrix)
+% ===================================================================
+\manentry{Generic Functions}{diagonal, diagonalMatrix (Matrix)}{Matrix: diagonal, diagonalMatrix}{Extract matrix diagonals, construct diagonal matrices from vectors, or zero off-diagonals}{mat:diagonal}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: diagonalMatrix}}}{Matrix: diagonalMatrix}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v1 = diagonal      (m1)   ! pure: extract main diagonal into Vector v1
+m2 = diagonal      (v1)   ! construct square diagonal Matrix from Vector v1
+m2 = diagonalMatrix(m1)   ! keep only main diagonal of m1, zero off-diagonals
+\end{lstlisting}
+
+\manheading{Brief}
+\procname{diagonal} extracts the main diagonal of a \typename{Matrix} into a \typename{Vector} or builds a diagonal \typename{Matrix} from a \typename{Vector}; \procname{diagonalMatrix} zeroes all off-diagonal entries of an existing \typename{Matrix}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \lcodef{v1 = diagonal(m1)} (\texttt{pure}): Constructs a \typename{Vector} of length \texttt{min(m1 \% m, m1 \% n)} with lower bound \texttt{v1 \% is = m1 \% is} and copies the diagonal entries \texttt{diagonal(m1 \% v)}.
+  \item \lcodef{m2 = diagonal(v1)}: Constructs a square \typename{Matrix} of size \texttt{v1 \% n} with \texttt{is = js = v1 \% is}, \texttt{mtype = 'ZG'}, \texttt{name = ''}, sets \texttt{m2 \% v(i,i) = v1 \% v(i)}, and zeroes off-diagonals. Useful for checking the eigen-equation $A V = V \operatorname{diag}(\lambda)$ after \lcodef{V = eigenvectors(A, lambda)}.
+  \item \lcodef{m2 = diagonalMatrix(m1)}: Copies \argname{m1} (including its bounds, \texttt{mtype}, and \texttt{name}) to \argname{m2} and sets \texttt{m2 \% v = diagonalMatrix(m1 \% v)} (keeping the $\min(m,n)$ diagonal elements and zeroing all others; non-square input is allowed and does \emph{not} produce \procname{NaN}).
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT / MATA}{class(Matrix), intent(in)}{Input matrix.}
+  \argitem{vec}{class(Vector), intent(in)}{Input vector of diagonal entries for \texttt{diagonal(vec)}.}
+  \argitem{result}{type(Vector) or type(Matrix), return value}{Extracted diagonal vector or constructed diagonal matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+type(Vector) :: v1
+
+m1 = Matrix('gaussian', 4, mtype='ZH')
+v1 = diagonal(m1)          ! extract 4-element Vector
+m2 = diagonal(v1)          ! rebuild 4x4 diagonal Matrix ('ZG')
+m3 = diagonalMatrix(m1)    ! diagonal Matrix keeping m1 % mtype ('ZH')
+\end{lstlisting}
+
+% ===================================================================
+% real, aimag, mcmplx (Matrix)
+% ===================================================================
+\manentry{Generic Functions}{real, aimag, mcmplx (Matrix / DMatrix)}{Matrix: real, aimag, mcmplx}{Convert between complex \texttt{Matrix} and real \texttt{DMatrix} parts}{mat:real_aimag_mcmplx}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: aimag}}}{Matrix: aimag}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: mcmplx}}}{Matrix: mcmplx}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d1 = real  (m1)       ! DMatrix containing Re(m1 % v); 'ZH' -> 'DS'
+d1 = aimag (m1)       ! DMatrix containing Im(m1 % v); mtype = 'DG'
+m1 = mcmplx(d1, d2)   ! Matrix  containing CMPLX(d1 % v, d2 % v, kind=8)
+\end{lstlisting}
+
+\manheading{Brief}
+\procname{real} and \procname{aimag} extract the real or imaginary parts of a \typename{Matrix} as a \typename{DMatrix}; \procname{mcmplx} combines two conformable \typename{DMatrix} objects into a complex \typename{Matrix}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{real(m1)}: Copies dimensions, bounds, and \texttt{name} from \argname{m1} into \typename{DMatrix} \argname{d1}, setting \texttt{d1 \% mtype = 'DS'} if \texttt{m1 \% mtype == 'ZH'} and \texttt{'DG'} otherwise, and fills \texttt{d1 \% v = REAL(m1 \% v, kind=8)}. Equivalent to \cbox{m1 \% re()}.
+  \item \procname{aimag(m1)}: Copies dimensions, bounds, and \texttt{name} into \typename{DMatrix} \argname{d1} with \texttt{d1 \% mtype = 'DG'} and \texttt{d1 \% v = AIMAG(m1 \% v)}. Equivalent to \cbox{m1 \% im()}.
+  \item \procname{mcmplx(d1, d2)}: Checks that \argname{d1} and \argname{d2} have the same shape $(m, n)$ (aborting via \texttt{matrix\_error} otherwise), inherits \texttt{m, n, is, js, name} from \argname{d1}, sets \texttt{m1 \% mtype = 'ZG'}, and fills \texttt{CMPLX(d1 \% v, d2 \% v, kind=8)}. To promote a single \typename{DMatrix} to pure real or pure imaginary \typename{Matrix}, multiply by \texttt{(1.0\_8, 0.0\_8)} or \texttt{(0.0\_8, 1.0\_8)} using \procname{*}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix) or class(DMatrix), intent(in)}{Input complex matrix (for \procname{real}/\procname{aimag}) or real-part \typename{DMatrix} (for \procname{mcmplx}).}
+  \argitem{MATB}{class(DMatrix), intent(in)}{Imaginary-part \typename{DMatrix} (for \procname{mcmplx}).}
+  \argitem{result}{type(DMatrix) or type(Matrix), return value}{Converted real or complex matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1, m2
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('gaussian', 4, name='RePart')
+d2 = DMatrix('gaussian', 4)
+m1 = mcmplx(d1, d2)   ! m1 % v = d1 % v + i * d2 % v, name='RePart'
+d1 = real(m1)
+d2 = aimag(m1)
+m2 = (0.0_8, 1.0_8) * d2   ! pure imaginary Matrix from DMatrix
+\end{lstlisting}
+
+\mansubgroup{Linear Algebra}
+
+% ===================================================================
+% inverse (Matrix)
+% ===================================================================
+\manentry{Generic Function}{inverse (Matrix)}{Matrix: inverse}{Computes the matrix inverse $M^{-1}$ via \texttt{LAPACK} LU factorization}{mat:inverse}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = inverse(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the matrix inverse $M_1^{-1}$ as a new \typename{type(Matrix)} using \texttt{LAPACK}'s \texttt{zgetrf} and \texttt{zgetri}.
+
+\manheading{Description}
+\procname{inverse(m1)} copies all metadata (bounds, \texttt{mtype}, \texttt{name}) from \argname{m1} to \argname{m2}, allocates \texttt{m2 \% v}, and calls \procname{inverse(m1 \% v)} from \modname{matrix\_mod\_array}. If \argname{m1} is singular or non-square, \texttt{m2 \% v} is filled with \procname{NaN} without aborting (test with \lcodef{isNaN(m2)}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Square non-singular input matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Inverse matrix $M_1^{-1}$ with identical metadata (or \procname{NaN} if singular/non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('gaussian', 8)
+m2 = inverse(m1)
+print *, 'Inverse error:', norm(m1 * m2 - Matrix('1', 8))
+\end{lstlisting}
+
+% ===================================================================
+% determinant (Matrix)
+% ===================================================================
+\manentry{Generic Function}{determinant (Matrix)}{Matrix: determinant}{Computes the determinant $\det M$ of a square \texttt{Matrix}}{mat:determinant}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z = determinant(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluates $\det M_1$ as a \typename{complex(8)} scalar via \texttt{LAPACK} LU factorization (\texttt{zgetrf}).
+
+\manheading{Description}
+Delegates to \procname{determinant(m1 \% v)} in \modname{matrix\_mod\_array}. Returns \texttt{(0.0\_8, 0.0\_8)} for singular matrices, \texttt{(1.0\_8, 0.0\_8)} for $0\times 0$, and \procname{NaN} if non-square.
+
+\begin{warnbox}[Overflow Limit]
+For $\sigma = 1$ complex Gaussian matrices (\lcodef{Matrix('g', N)}), $|\det M|$ exceeds the largest IEEE double ($\approx 1.8\times 10^{308}$) at about $N \approx 270$; already at $N = 200$, $|\det M| \sim 10^{217}$. For large matrices, always use \procname{lndet}.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix.}
+  \argitem{z}{complex(8), scalar, return value}{Complex determinant $\det M$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: z
+
+m1 = Matrix('gaussian', 16)
+z  = determinant(m1)
+\end{lstlisting}
+
+% ===================================================================
+% lndet (Matrix)
+% ===================================================================
+\manentry{Generic Function}{lndet (Matrix)}{Matrix: lndet}{Computes $\ln|\det M|$ and complex phase $\e{i\arg(\det M)}$ without overflow}{mat:lndet}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+lz = lndet(m1)       ! lz is complex(8) :: lz(2)
+! det(m1) = exp(lz(1)) * lz(2)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a 2-element \typename{complex(8)} array containing $\ln|\det M|$ in \texttt{lz(1)} and the unit-modulus complex phase in \texttt{lz(2)}.
+
+\manheading{Description}
+Factorizing $M = P L U$ via \texttt{zgetrf}, \procname{lndet(m1)} accumulates $\texttt{lz(1)} = \sum_i \ln|U_{ii}|$ and $\texttt{lz(2)} = (-1)^S \prod_i U_{ii}/|U_{ii}|$ so that $\det M = \rho\, \e{i\phi}$ with $\texttt{lz(1)} = \ln\rho$ and $\texttt{lz(2)} = \e{i\phi}$. When $M$ is singular, \texttt{lz(1) = (}$-\infty$\texttt{, 0)} and \texttt{lz(2) = (0, 0)}; when non-square, both elements are \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix.}
+  \argitem{z}{complex(8), dimension(2), return value}{\texttt{z(1)} $= \ln|\det M|$ and \texttt{z(2)} $= \e{i\arg(\det M)}$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: lz(2), z
+
+m1 = Matrix('gaussian', 256)
+lz = lndet(m1)
+! For smaller matrices: z = exp(lz(1)) * lz(2) == determinant(m1)
+\end{lstlisting}
+
+% ===================================================================
+% Pfaffian and lnPfaffian (Matrix)
+% ===================================================================
+\manentry{Generic Functions}{Pfaffian, lnPfaffian (Matrix)}{Matrix: Pfaffian, lnPfaffian}{Compute the Pfaffian $\Pf M$ or its log magnitude and phase for antisymmetric matrices}{mat:pfaffian}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: lnPfaffian}}}{Matrix: lnPfaffian}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+z  = Pfaffian  (m1)     ! returns complex(8) scalar Pf(m1)
+lz = lnPfaffian(m1)     ! returns complex(8) :: lz(2); Pf = exp(lz(1))*lz(2)
+\end{lstlisting}
+
+\manheading{Brief}
+Compute the Pfaffian $\Pf M$ (satisfying $(\Pf M)^2 = \det M$ for even-dimensional skew-symmetric matrices) and its overflow-safe logarithmic representation using \texttt{PFAPACK}~\cite{Wimmer_2012,pfapack}.
+
+\manheading{Description}
+Calling \procname{Pfaffian(m1 \% v)} (\texttt{skpfa}) and \procname{lnPfaffian(m1 \% v)} (\texttt{skpf10}) from \modname{matrix\_mod\_array}:
+\begin{itemize}
+  \item Input \argname{m1} must be an antisymmetric ($M^T = -M$) complex matrix (e.g.\ prepared with \lcodef{call antisymmetric_set(m1)}).
+  \item For odd dimension $N$ or singular matrices, \procname{Pfaffian} returns \texttt{(0.0\_8, 0.0\_8)}, while \procname{lnPfaffian} returns \texttt{lz(1) = (}$-\infty$\texttt{, 0)} and \texttt{lz(2) = (0, 0)}.
+  \item For Gaussian antisymmetric matrices (built with \lcodef{Matrix('g', N)} and then made antisymmetric with \procname{antisymmetric\_set}), \procname{Pfaffian} works up to about $N \approx 540$; beyond that it overflows and returns \procname{NaN} (not \texttt{Inf}). Use \procname{lnPfaffian} for larger dimensions.
+  \item Note that \procname{Pfaffian} and \procname{lnPfaffian} are defined only for complex \typename{Matrix}, not \typename{DMatrix}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Antisymmetric square complex matrix.}
+  \argitem{z}{complex(8), return value}{Scalar Pfaffian $\Pf M$ (for \procname{Pfaffian}) or 2-element array \texttt{[ln|Pf M|, exp(i arg Pf M)]} (for \procname{lnPfaffian}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+complex(8)   :: z, lz(2)
+
+m1 = Matrix('gaussian', 16)
+call antisymmetric_set(m1)
+z  = Pfaffian(m1)
+lz = lnPfaffian(m1)     ! exp(lz(1)) * lz(2) == z
+\end{lstlisting}
+
+% ===================================================================
+% eigenvalues (Matrix)
+% ===================================================================
+\manentry{Generic Function}{eigenvalues (Matrix)}{Matrix: eigenvalues}{Computes all eigenvalues of a square \texttt{Matrix} as a \texttt{Vector}}{mat:eigenvalues}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v1 = eigenvalues(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the eigenvalues of a square \typename{type(Matrix)} and returns them in a \typename{type(Vector)}, automatically dispatching to Hermitian \texttt{zheev} when \texttt{m1 \% mtype = 'ZH'}.
+
+\manheading{Description}
+\procname{eigenvalues(m1)} allocates a \typename{Vector} \argname{v1} of length \texttt{m1 \% n} with lower bound \texttt{v1 \% is = m1 \% is} and invokes \texttt{eigenvalues(m1 \% v, mtype = m1 \% mtype)}:
+\begin{itemize}
+  \item If \texttt{m1 \% mtype = 'ZH'}, \texttt{LAPACK}'s fast Hermitian eigensolver \texttt{zheev} is called, returning real eigenvalues (with zero imaginary part) sorted in ascending algebraic order.
+  \item Otherwise (\texttt{'ZG'}), \texttt{LAPACK}'s general complex eigensolver \texttt{zgeev} is called.
+\end{itemize}
+Aborts via \texttt{matrix\_error} if \argname{m1} is non-square (\texttt{m1 \% m /= m1 \% n}), and fills \texttt{v1 \% v} with \procname{NaN} if \texttt{LAPACK} fails to converge.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Square complex matrix whose \texttt{mtype} selects \texttt{zheev} (\texttt{'ZH'}) or \texttt{zgeev}.}
+  \argitem{vec}{type(Vector), return value}{Allocated vector of $N$ complex eigenvalues with \texttt{is = MAT \% is}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+type(Vector) :: evals
+
+m1    = Matrix('gaussian', 8, mtype='ZH')
+evals = eigenvalues(m1)   ! uses zheev automatically
+call evals % print()
+\end{lstlisting}
+
+% ===================================================================
+% eigenvectors (Matrix)
+% ===================================================================
+\manentry{Generic Function}{eigenvectors (Matrix)}{Matrix: eigenvectors}{Computes eigenvalues and right eigenvectors of a square \texttt{Matrix}}{mat:eigenvectors}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = eigenvectors(m1, v2)   ! v2: eigenvalues, m2 cols: right eigenvectors
+m3 = diagonal(v2)           ! diagonal matrix: m1 * m2 == m2 * m3
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the normalized right eigenvectors of an $N \times N$ \typename{Matrix} \argname{m1} (returned as columns of \argname{m2}) and stores the corresponding eigenvalues in \argname{v2}.
+
+\manheading{Description}
+Given a square $N \times N$ \typename{Matrix} \argname{m1} (aborting via \texttt{matrix\_error} if \texttt{m1 \% m /= m1 \% n}), \procname{eigenvectors(m1, v2)} invokes \modname{matrix\_mod\_array}'s \procname{eigenvectors} with \texttt{mtype = m1 \% mtype}:
+\begin{itemize}
+  \item If \texttt{v2 \% n /= m1 \% n} (e.g.\ if \argname{v2} is uninitialized), \argname{v2} is automatically constructed via \cbox{Vector(m1 \% n, is=m1 \% is)} and populated with the $N$ eigenvalues $\lambda_j$.
+  \item Return matrix \argname{m2} copies bounds and \texttt{name} from \argname{m1}, sets \texttt{m2 \% mtype = 'ZG'} (since the eigenvector matrix is unitary, not Hermitian), and stores the normalized right eigenvector corresponding to \texttt{v2 \% v(j)} in column \texttt{j} (\texttt{m2 \% v(:,j)}), satisfying $M_1\, M_2 = M_2\, \operatorname{diag}(v_2)$.
+\end{itemize}
+
+\begin{notebox}[Eigenvalue Ordering and Hermitian \texttt{zheev} Dispatch]
+\begin{enumerate}
+  \item For general complex matrices ($N \gtrsim 100$, \texttt{'ZG'}), \texttt{eigenvalues(m1)} and \texttt{eigenvectors(m1, v2)} may return eigenvalues in \emph{different} orders. Always pair eigenvector matrix \argname{m2} with the eigenvalue vector \argname{v2} produced by the same \procname{eigenvectors} call (never with \texttt{eigenvalues(m1)}).
+  \item When \texttt{m1 \% mtype = 'ZH'}, \procname{eigenvectors} forwards \texttt{mtype} to \modname{matrix\_mod\_array}, dispatching to \texttt{LAPACK} \texttt{zheev} (reading only the upper triangle) and returning real eigenvalues in ascending order matching \texttt{eigenvalues(m1)} along with orthonormal eigenvectors.
+\end{enumerate}
+\end{notebox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Square $N \times N$ complex matrix.}
+  \argitem{vec}{type(Vector), intent(inout)}{Receives the $N$ eigenvalues (auto-constructed if \texttt{vec \% n /= N}).}
+  \argitem{MATB}{type(Matrix), return value}{Matrix whose $j$-th column is the right eigenvector corresponding to \texttt{vec \% v(j)}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+type(Vector) :: v2
+
+m1 = Matrix('gaussian', 8)
+m2 = eigenvectors(m1, v2)
+m3 = diagonal(v2)
+print *, 'Eigenproblem residual:', norm(m1 * m2 - m2 * m3)
+\end{lstlisting}
+
+\mansubgroup{Math Functions}
+
+% ===================================================================
+% abs (Matrix)
+% ===================================================================
+\manentry{Pure Generic Function}{abs (Matrix)}{Matrix: abs}{Computes the element-wise complex modulus $|M_{ij}|$, returning a \texttt{DMatrix}}{mat:abs}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d1 = abs(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Applies Fortran's element-wise \texttt{abs} to \texttt{m1 \% v} and returns a \typename{type(DMatrix)} with preserved dimensions, bounds, and \texttt{name}.
+
+\manheading{Description}
+This \texttt{pure} function copies metadata from \argname{m1} into a \typename{DMatrix} \argname{d1}, setting \texttt{d1 \% mtype = 'DS'} if \texttt{m1 \% mtype == 'ZH'} (since $|M_{ij}| = |M_{ji}^*|$ makes $|M|$ real symmetric when $M$ is Hermitian) and \texttt{'DG'} otherwise.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Input complex matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Real matrix of element-wise moduli (\texttt{'DS'} if \argname{MAT} is \texttt{'ZH'}, else \texttt{'DG'}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1
+type(DMatrix) :: d1
+
+m1 = Matrix('gaussian', 4, mtype='ZH')
+d1 = abs(m1)     ! d1 % mtype == 'DS'
+\end{lstlisting}
+
+% ===================================================================
+% sin, cos, exp, log, sqrt (Matrix)
+% ===================================================================
+\manentry{Pure Generic Functions}{sin, cos, exp, log, sqrt (Matrix)}{Matrix: sin, cos, exp, log, sqrt}{Element-wise complex mathematical functions on \texttt{Matrix}}{mat:math_funcs}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: cos}}}{Matrix: cos}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: exp}}}{Matrix: exp}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: log}}}{Matrix: log}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix: sqrt}}}{Matrix: sqrt}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = sin (m1);   m2 = cos (m1);   m2 = exp (m1)   ! preserves m1 % mtype
+m2 = log (m1);   m2 = sqrt(m1)                    ! sets m2 % mtype = 'ZG'
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate the standard complex functions $\sin, \cos, \exp, \ln, \sqrt{\cdot}$ element-by-element on \texttt{m1 \% v}, returning a new \typename{type(Matrix)}.
+
+\manheading{Description}
+All five functions are \texttt{pure}, preserve shape, index bounds, and \texttt{name}, and operate element-wise (not as matrix functions defined by power series). \procname{sin}, \procname{cos}, and \procname{exp} preserve \texttt{m1 \% mtype}, whereas \procname{log} and \procname{sqrt} always set \texttt{m2 \% mtype = 'ZG'} because branch cuts on negative diagonal or off-diagonal elements can break Hermiticity.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Input complex matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Result \typename{Matrix} with element-wise function values.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('uniform', 4) + 1.0_8
+m2 = exp(m1) + sin(m1) - log(m1)
+\end{lstlisting}
+
+\mansubgroup{Misc Procedures}
+
+% ===================================================================
+% metadata_copy (Matrix)
+% ===================================================================
+\manentry{Pure Generic Subroutine}{metadata\_copy (Matrix / DMatrix)}{Matrix: metadata\textunderscore copy}{Copies matrix metadata without allocating or copying elements}{mat:metadata_copy}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call metadata_copy(mat_src, mat_dst)
+\end{lstlisting}
+
+\manheading{Brief}
+Copies dimensions, index bounds, \texttt{mtype}, and \texttt{name} between any pair of \typename{Matrix} or \typename{DMatrix} objects without allocating or copying \texttt{v}.
+
+\manheading{Description}
+\procname{metadata\_copy} accepts any combination of \typename{Matrix} and \typename{DMatrix} for \argname{mat\_src} and \argname{mat\_dst} (via \texttt{class(MatrixClass)}). It copies \texttt{m, n, is, ie, js, je, mtype, name}, and automatically adjusts \texttt{mtype} on cross-type copies:
+\begin{itemize}
+  \item \typename{DMatrix} $\to$ \typename{Matrix}: if source \texttt{mtype} starts with \texttt{'D'}, sets destination \texttt{mtype = 'ZG'}.
+  \item \typename{Matrix} $\to$ \typename{DMatrix}: if source \texttt{mtype} starts with \texttt{'Z'}, sets destination \texttt{mtype = 'DG'}.
+\end{itemize}
+Note that \texttt{mat\_dst \% v} is \emph{not} allocated or modified; allocate it explicitly using \texttt{is:ie, js:je} afterwards.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(MatrixClass), intent(in)}{Source \typename{Matrix} or \typename{DMatrix}.}
+  \argitem{MATB}{class(MatrixClass), intent(inout)}{Destination \typename{Matrix} or \typename{DMatrix} receiving metadata.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1, m2
+type(DMatrix) :: d1
+
+m1 = Matrix(4, 3, is=0, js=2, name='Src')
+call metadata_copy(m1, m2)
+allocate(m2 % v(m2 % is : m2 % ie, m2 % js : m2 % je))
+call metadata_copy(m1, d1)   ! d1 % mtype becomes 'DG'
+\end{lstlisting}
+
+% ===================================================================
+% isNaN (Matrix)
+% ===================================================================
+\manentry{Generic Function}{isNaN (Matrix)}{Matrix: isNaN}{Tests whether any entry of a \texttt{Matrix} contains IEEE \texttt{NaN}}{mat:isNaN}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+has_nan = isNaN(m1)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns \texttt{.true.} if any element of \texttt{m1 \% v} has a \texttt{NaN} real or imaginary component, and \texttt{.false.} otherwise.
+
+\manheading{Description}
+Calls \procname{isNaN(m1 \% v)} from \modname{matrix\_mod\_array} (which evaluates \texttt{ANY(IEEE\_IS\_NAN(REAL(v)) .OR. IEEE\_IS\_NAN(AIMAG(v)))}). Use this check after \procname{inverse}, \procname{eigenvalues}, or \procname{eigenvectors} to detect singularity or non-convergence without halting execution. See Section~\ref{mod:NaN} for generating \procname{NaN} values.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Matrix to inspect.}
+  \argitem{itis}{logical, scalar, return value}{\texttt{.true.} if any entry contains \texttt{NaN}, else \texttt{.false.}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+real(8)      :: r = 0.0_8
+
+m1 = Matrix(4)
+m1 % v(2,3) = NaN(r)
+print *, 'Contains NaN?', isNaN(m1)   ! prints T
+\end{lstlisting}

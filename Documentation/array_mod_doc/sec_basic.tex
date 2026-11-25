@@ -1,0 +1,987 @@
+% ===================================================================
+% Section 2: Basic Matrix Operations
+% ===================================================================
+\section{Basic Matrix Operations}
+\label{sec:basic_matrix_ops}
+
+This section documents the fundamental procedures for matrix and array manipulation, including traces, symmetry transformations and tests, diagonal and identity constructors, Pauli matrices, sorting, random shuffling, norms, and matrix multiplication.
+
+% -------------------------------------------------------------------
+\subsection{Trace, symmetries, sort, norm}
+\label{subsec:trace_sym_sort_norm}
+
+The procedures in this subsection compute matrix traces ($\Tr A$, $\Tr A^2$, $\Tr(AB)$, and connected quadratic traces), project matrices onto their traceless, Hermitian, symmetric, or antisymmetric parts, measure deviations from exact symmetry, extract or construct diagonal matrices, construct identity and Pauli matrices, sort vectors via Quicksort, shuffle arrays via the Fisher--Yates algorithm, and compute normalized $L_1$ array norms.
+
+\begin{notebox}[Non-Square Input]
+The procedures of this subsection that require a square matrix (\procname{trace}, \procname{trace2}, \procname{trace2c}, \procname{traceless}, \procname{traceless\_set}, \procname{hermitian\_set}, \procname{symmetric\_set}, \procname{antisymmetric\_set}, \procname{isHermitian}, \procname{isSymmetric}, and \procname{isAntisymmetric}) do not abort when \texttt{size(C,1) /= size(C,2)}: functions return IEEE \procname{NaN} (a scalar, or an array of the shape of \argname{C} for \procname{traceless}), and the \texttt{*\_set} subroutines overwrite \argname{C} with \procname{NaN}. Test the result with \procname{isNaN}. Empty $0\times 0$ matrices are accepted (traces are $0$).
+\end{notebox}
+
+% ===================================================================
+% 1. trace
+% ===================================================================
+\manentry{Pure Generic Function}{trace}{trace}{Computes the trace $\Tr C = \sum_i C_{ii}$ of a real or complex matrix}{proc:trace}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+t = trace(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the sum of the diagonal elements of a rank-2 real or complex array \argname{C}.
+
+\manheading{Description}
+The generic function \procname{trace} extracts the main diagonal of the input matrix \argname{C} using the internal diagonal getter (\texttt{array2\_diagonal\_get} or \texttt{array2\_diagonal\_get\_d}) and returns the sum of its elements:
+\begin{align}
+  \Tr C = \sum_{i=1}^{N} C_{ii}\, , \qquad N = \texttt{size(C,1)}\, .
+\end{align}
+Both double-precision complex (\typename{complex(8)}) and double-precision real (\typename{real(8)}) matrices are supported. The matrix \argname{C} must be square; for non-square \argname{C}, \procname{trace} returns \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input rank-2 square matrix whose trace is to be evaluated.}
+  \argitem{t}{complex(8) or real(8), scalar, return value}{The computed trace $\sum_{i=1}^{\texttt{size(C,1)}} C(i,i)$, matching the data type of \argname{C} (\procname{NaN} if \argname{C} is non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,4), z
+real   (8) :: d1(4,4), r
+
+call random_number(m1)
+call random_number(d1)
+
+z = trace(m1)   ! complex trace: sum_i m1(i,i)
+r = trace(d1)   ! real trace:    sum_i d1(i,i)
+\end{lstlisting}
+
+% ===================================================================
+% 2. trace2
+% ===================================================================
+\manentry{Pure Generic Function}{trace2}{trace2}{Computes the quadratic trace $\Tr(C^2)$ or bilinear trace $\Tr(C_1 C_2)$}{proc:trace2}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+t = trace2(C, [mtype])
+t = trace2(C1, C2, [mtype])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes $\Tr(C^2) = \sum_{i,j} C_{ij} C_{ji}$ for a single matrix or $\Tr(C_1 C_2) = \sum_{i,j} (C_1)_{ij} (C_2)_{ji}$ for two matrices in $O(N^2)$ operations without performing full $O(N^3)$ matrix multiplication.
+
+\manheading{Description}
+The overloaded function \procname{trace2} evaluates the trace of the square of a matrix or the product of two matrices directly from their matrix elements:
+\begin{align}
+  \texttt{trace2(C)}     &= \Tr(C^2)    = \sum_{i=1}^{M}\sum_{j=1}^{N} C_{ij}\, C_{ji}\, , \\
+  \texttt{trace2(C1,C2)} &= \Tr(C_1 C_2) = \sum_{i=1}^{M_1}\sum_{j=1}^{N_1} (C_1)_{ij}\, (C_2)_{ji}\, .
+\end{align}
+Both the single-matrix form and the two-matrix form validate squareness and conformability before performing any element-wise computation: \argname{C} must be square ($M = N$), and \argname{C1}, \argname{C2} must be square matrices of identical dimensions ($M_1 = N_1 = M_2 = N_2$). If any dimension check fails, \procname{trace2} immediately returns IEEE \procname{NaN}.
+
+When the optional argument \argname{mtype} is supplied to indicate that \argname{C} (or \argname{C2} in the two-matrix call) is Hermitian (\texttt{mtype='ZH'} for complex arrays, or simply \texttt{mtype='H'}) or symmetric (\texttt{mtype='DS'} for real arrays, or \texttt{mtype='S'}), \procname{trace2} uses the identity $C_{ji} = C_{ij}^*$ (or $C_{ji} = C_{ij}$) to evaluate the sum with unit-stride memory access via intrinsic array operations:
+\begin{align}
+  \Tr(C^2) &= \sum_{i,j} C_{ij} C_{ij}^* = \sum_{i,j} |C_{ij}|^2 \quad (\text{Hermitian } C)\, , \qquad
+  \Tr(C_1 C_2) = \sum_{i,j} (C_1)_{ij} (C_2)_{ij}^* \quad (\text{Hermitian } C_2)\, , \\
+  \Tr(C^2) &= \sum_{i,j} C_{ij}^2 \quad (\text{Real symmetric } C)\, , \qquad\quad\,\,
+  \Tr(C_1 C_2) = \sum_{i,j} (C_1)_{ij} (C_2)_{ij} \quad (\text{Real symmetric } C_2)\, .
+\end{align}
+
+\begin{warnbox}[No Runtime Symmetry Verification]
+When \texttt{mtype='ZH'} or \texttt{mtype='DS'} is specified, \procname{trace2} does \emph{not} verify that the matrix is actually Hermitian or symmetric. Passing a non-Hermitian (or non-symmetric) matrix with this flag will yield $\Tr(C C^\dagger)$ (or $\Tr(C C^T)$) rather than $\Tr(C^2)$.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square matrix for the single-argument form $\Tr(C^2)$.}
+  \argitem{C1, C2}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square matrices of the same type and size for the two-argument form $\Tr(C_1 C_2)$.}
+  \argitem{mtype}{character(*), optional, intent(in)}{Matrix symmetry hint (case-insensitive). A one-character string is the type itself; a longer string supplies it in its second character: \texttt{'H'} or \texttt{'ZH'} for complex Hermitian matrices, \texttt{'S'} or \texttt{'DS'} for real symmetric matrices, \texttt{'G'}/\texttt{'ZG'}/\texttt{'DG'} (default, also used for an absent or blank \argname{mtype}) for general matrices.}
+  \argitem{t}{complex(8) or real(8), scalar, return value}{The trace $\Tr(C^2)$ or $\Tr(C_1 C_2)$ (or \procname{NaN} if \argname{C}, \argname{C1}, or \argname{C2} is non-square, or if \argname{C1} and \argname{C2} have different sizes).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8), m2(8,8), z
+real   (8) :: d1(8,8), d2(8,8), r
+
+call random_number(m1); call random_number(m2)
+call random_number(d1); call random_number(d2)
+
+z = trace2(m1)                  ! Tr(m1^2) = sum_ij m1(i,j)*m1(j,i)
+r = trace2(d1)                  ! Tr(d1^2) = sum_ij d1(i,j)*d1(j,i)
+z = trace2(m1, m2)              ! Tr(m1*m2) = sum_ij m1(i,j)*m2(j,i)
+r = trace2(d1, d2)              ! Tr(d1*d2) = sum_ij d1(i,j)*d2(j,i)
+
+! Faster evaluation for Hermitian / Symmetric matrices:
+call hermitian_set(m1); call hermitian_set(m2)
+call symmetric_set(d1); call symmetric_set(d2)
+z = trace2(m1,     mtype='ZH')
+z = trace2(m1, m2, mtype='ZH')
+r = trace2(d1,     mtype='DS')
+r = trace2(d1, d2, mtype='DS')
+\end{lstlisting}
+
+% ===================================================================
+% 3. trace2c
+% ===================================================================
+\manentry{Pure Generic Function}{trace2c}{trace2c}{Computes the connected quadratic trace $\Tr(\tilde{C}^2)$ of the traceless part $\tilde{C} = C - \frac{1}{N}(\Tr C) I$}{proc:trace2c}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+t = trace2c(C, [mtype])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes $\Tr(\tilde{C}^2) = \sum_{i,j} \tilde{C}_{ij} \tilde{C}_{ji}$, where $\tilde{C} = C - \frac{1}{N}(\Tr C)\, I_N$ is the traceless projection of \argname{C}.
+
+\manheading{Description}
+The generic function \procname{trace2c} creates a local copy $\tilde{C}$ of the input $N\times N$ matrix \argname{C}, removes its trace via \procname{traceless\_set} so that $\tilde{C}_{ij} = C_{ij} - \frac{1}{N}(\Tr C)\delta_{ij}$, and returns \texttt{trace2}($\tilde{C}$, \argname{mtype}):
+\begin{align}
+  \texttt{trace2c(C)} = \Tr\!\left[\left(C - \frac{\Tr C}{N} I_N\right)^2\right] = \Tr(C^2) - \frac{1}{N}(\Tr C)^2\, .
+\end{align}
+This quantity is frequently used in $U(N)$ and $SU(N)$ matrix models to measure gauge-invariant extent observables with the center-of-mass mode $\frac{1}{N}\Tr C$ subtracted.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square matrix.}
+  \argitem{mtype}{character(*), optional, intent(in)}{Matrix symmetry hint forwarded to \procname{trace2}: \texttt{'ZH'} for complex Hermitian \argname{C}, \texttt{'DS'} for real symmetric \argname{C}, or \texttt{'ZG'}/\texttt{'DG'} by default.}
+  \argitem{t}{complex(8) or real(8), scalar, return value}{The connected quadratic trace $\Tr(\tilde{C}^2)$ (\procname{NaN} if \argname{C} is non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(16,16), z
+real   (8) :: d1(16,16), r
+
+call random_number(m1); call hermitian_set(m1)
+call random_number(d1); call symmetric_set(d1)
+
+z = trace2c(m1, mtype='ZH')   ! Tr((m1 - (Tr(m1)/N)*I)^2)
+r = trace2c(d1, mtype='DS')   ! Tr((d1 - (Tr(d1)/N)*I)^2)
+\end{lstlisting}
+
+% ===================================================================
+% 4. traceless
+% ===================================================================
+\manentry{Pure Generic Function}{traceless}{traceless}{Returns the traceless part $C - \frac{1}{N}(\Tr C) I$ of a square matrix}{proc:traceless}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+B = traceless(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a newly allocated matrix equal to \argname{C} with $\frac{1}{N}\Tr C$ subtracted from each diagonal entry.
+
+\manheading{Description}
+Given an $N\times N$ real or complex matrix \argname{C} (where $N = \texttt{size(C,1)}$), \procname{traceless} allocates an $N\times N$ output array \argname{B}, copies \argname{C} into \argname{B}, and subtracts the mean diagonal value $\frac{1}{N}\Tr C$ from every diagonal element:
+\begin{align}
+  B_{ij} = C_{ij} - \left(\frac{1}{N}\sum_{k=1}^{N} C_{kk}\right) \delta_{ij}\, ,
+\end{align}
+so that $\Tr B = 0$ up to machine precision. The input matrix \argname{C} is not modified.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square $N\times N$ matrix.}
+  \argitem{B}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output $N\times N$ traceless matrix of the same type as \argname{C}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:), d2(:,:)
+
+allocate(m1(8,8), d1(8,8))
+call random_number(m1); call random_number(d1)
+
+m2 = traceless(m1)   ! trace(m2) == (0.0_8, 0.0_8)
+d2 = traceless(d1)   ! trace(d2) ==  0.0_8
+\end{lstlisting}
+
+% ===================================================================
+% 5. traceless_set
+% ===================================================================
+\manentry{Pure Generic Subroutine}{traceless\_set}{traceless\textunderscore set}{Makes a square matrix traceless in-place}{proc:traceless_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call traceless_set(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Modifies the matrix \argname{C} in-place by subtracting $\frac{1}{N}\Tr C$ from its diagonal elements.
+
+\manheading{Description}
+The generic subroutine \procname{traceless\_set} projects an $N\times N$ matrix \argname{C} onto the traceless subspace in-place without allocating a temporary matrix:
+\begin{align}
+  C_{ii} \leftarrow C_{ii} - \frac{1}{N}\sum_{k=1}^{N} C_{kk}\, , \qquad i = 1,\ldots,N\, .
+\end{align}
+Off-diagonal elements $C_{ij}$ ($i\neq j$) remain unchanged.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(inout)}{On entry, an $N\times N$ matrix; on exit, its diagonal elements are shifted so that $\Tr C = 0$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: d1(8,8)
+
+call random_number(m1); call traceless_set(m1)
+call random_number(d1); call traceless_set(d1)
+\end{lstlisting}
+
+% ===================================================================
+% 6. hermitian_set
+% ===================================================================
+\manentry{Pure Generic Subroutine}{hermitian\_set}{hermitian\textunderscore set}{Projects or symmetrizes a complex matrix into a Hermitian matrix in-place}{proc:hermitian_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call hermitian_set(C, [uplo])
+\end{lstlisting}
+
+\manheading{Brief}
+Transforms a square complex matrix \argname{C} in-place into a Hermitian matrix ($C = C^\dagger$).
+
+\manheading{Description}
+The subroutine \procname{hermitian\_set} makes a square \typename{complex(8)} matrix \argname{C} Hermitian according to the optional character control argument \argname{uplo}:
+\begin{itemize}
+  \item \textbf{Default (\argname{uplo} absent, or \texttt{uplo(1:1)} $\notin \{\texttt{'U','u','L','l'}\}$)}: Replaces \argname{C} with its Hermitian part:
+  \begin{align}
+    C \leftarrow \frac{1}{2}\left(C + C^\dagger\right) = \frac{1}{2}\left(C + \texttt{CONJG(TRANSPOSE(C))}\right)\, .
+  \end{align}
+  \item \textbf{\texttt{uplo='U'} or \texttt{'u'}}: Preserves the strict upper triangular part ($i < j$) and sets the lower triangular part ($i > j$) to its complex conjugate: $C_{ij} \leftarrow C_{ji}^*$ for $i > j$.
+  \item \textbf{\texttt{uplo='L'} or \texttt{'l'}}: Preserves the strict lower triangular part ($i > j$) and sets the upper triangular part ($i < j$) to its complex conjugate: $C_{ij} \leftarrow C_{ji}^*$ for $i < j$.
+\end{itemize}
+In all cases, the imaginary part of every diagonal element is explicitly zeroed out: $C_{ii} \leftarrow \Re(C_{ii})$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8), dimension(:,:), intent(inout)}{Square complex matrix to be made Hermitian in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{Controls how Hermiticity is enforced: \texttt{'U'} preserves the upper triangle, \texttt{'L'} preserves the lower triangle, and any other character (or omission) averages $\frac{1}{2}(C + C^\dagger)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8), m2(8,8)
+
+call random_number(m1)
+call hermitian_set(m1)            ! m1 <- (m1 + m1^\dagger) / 2
+
+call random_number(m2)
+call hermitian_set(m2, uplo='U')  ! copy conjg of upper triangle to lower triangle
+\end{lstlisting}
+
+% ===================================================================
+% 7. symmetric_set
+% ===================================================================
+\manentry{Pure Generic Subroutine}{symmetric\_set}{symmetric\textunderscore set}{Projects or symmetrizes a real or complex matrix into a symmetric matrix in-place}{proc:symmetric_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call symmetric_set(C, [uplo])
+\end{lstlisting}
+
+\manheading{Brief}
+Transforms a square real or complex matrix \argname{C} in-place into a symmetric matrix ($C = C^T$).
+
+\manheading{Description}
+The generic subroutine \procname{symmetric\_set} enforces transpose symmetry ($C_{ij} = C_{ji}$) on a square \typename{complex(8)} or \typename{real(8)} matrix \argname{C} according to the optional argument \argname{uplo}:
+\begin{itemize}
+  \item \textbf{Default (\argname{uplo} absent, or \texttt{uplo(1:1)} $\notin \{\texttt{'U','u','L','l'}\}$)}: Replaces \argname{C} with its symmetric part:
+  \begin{align}
+    C \leftarrow \frac{1}{2}\left(C + C^T\right)\, .
+  \end{align}
+  \item \textbf{\texttt{uplo='U'} or \texttt{'u'}}: Preserves the upper triangular part ($i < j$) and sets $C_{ij} \leftarrow C_{ji}$ for $i > j$.
+  \item \textbf{\texttt{uplo='L'} or \texttt{'l'}}: Preserves the lower triangular part ($i > j$) and sets $C_{ij} \leftarrow C_{ji}$ for $i < j$.
+\end{itemize}
+Diagonal elements $C_{ii}$ are left untouched.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(inout)}{Square matrix to be made symmetric in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{Triangular source selector: \texttt{'U'} (upper), \texttt{'L'} (lower), or omitted/other for $\frac{1}{2}(C + C^T)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: d1(8,8)
+
+call random_number(m1); call symmetric_set(m1)
+call random_number(d1); call symmetric_set(d1, uplo='L')
+\end{lstlisting}
+
+% ===================================================================
+% 8. antisymmetric_set
+% ===================================================================
+\manentry{Pure Generic Subroutine}{antisymmetric\_set}{antisymmetric\textunderscore set}{Projects or skew-symmetrizes a real or complex matrix into an antisymmetric matrix in-place}{proc:antisymmetric_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call antisymmetric_set(C, [uplo])
+\end{lstlisting}
+
+\manheading{Brief}
+Transforms a square real or complex matrix \argname{C} in-place into an antisymmetric (skew-symmetric) matrix ($C = -C^T$).
+
+\manheading{Description}
+The generic subroutine \procname{antisymmetric\_set} enforces skew-symmetry ($C_{ij} = -C_{ji}$) on a square \typename{complex(8)} or \typename{real(8)} matrix \argname{C} according to the optional argument \argname{uplo}:
+\begin{itemize}
+  \item \textbf{Default (\argname{uplo} absent, or \texttt{uplo(1:1)} $\notin \{\texttt{'U','u','L','l'}\}$)}: Replaces \argname{C} with its antisymmetric part:
+  \begin{align}
+    C \leftarrow \frac{1}{2}\left(C - C^T\right)\, .
+  \end{align}
+  \item \textbf{\texttt{uplo='U'} or \texttt{'u'}}: Preserves the strict upper triangular part ($i < j$) and sets $C_{ij} \leftarrow -C_{ji}$ for $i > j$.
+  \item \textbf{\texttt{uplo='L'} or \texttt{'l'}}: Preserves the strict lower triangular part ($i > j$) and sets $C_{ij} \leftarrow -C_{ji}$ for $i < j$.
+\end{itemize}
+In all cases, the diagonal entries are explicitly set to zero: $C_{ii} \leftarrow 0$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(inout)}{Square matrix to be made antisymmetric in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{Triangular source selector: \texttt{'U'} (upper), \texttt{'L'} (lower), or omitted/other for $\frac{1}{2}(C - C^T)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: d1(8,8)
+
+call random_number(m1); call antisymmetric_set(m1)
+call random_number(d1); call antisymmetric_set(d1, uplo='U')
+\end{lstlisting}
+
+% ===================================================================
+% 9. hermitian
+% ===================================================================
+\manentry{Pure Generic Function}{hermitian}{hermitian}{Returns the Hermitian conjugate $C^\dagger$ of a complex matrix}{proc:hermitian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+CH = hermitian(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the conjugate transpose $C^\dagger = (C^T)^*$ of a complex matrix \argname{C}.
+
+\manheading{Description}
+Given an $M\times N$ \typename{complex(8)} matrix \argname{C}, \procname{hermitian} allocates and returns an $N\times M$ \typename{complex(8)} matrix \argname{CH} equal to \texttt{CONJG(TRANSPOSE(C))}, so that $(C_H)_{ij} = C_{ji}^*$. Note that \procname{hermitian} returns the adjoint matrix $C^\dagger$ itself (not the Hermitian projection $\frac{1}{2}(C+C^\dagger)$, which is performed by \procname{hermitian\_set}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8), dimension(:,:), intent(in)}{Input $M\times N$ complex matrix.}
+  \argitem{CH}{complex(8), dimension(:,:), allocatable, return value}{Output $N\times M$ Hermitian conjugate matrix $C^\dagger$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+
+allocate(m1(4,6))
+call random_number(m1)
+m2 = hermitian(m1)   ! m2 has shape (6,4) and equals m1^\dagger
+\end{lstlisting}
+
+% ===================================================================
+% 10. symmetric
+% ===================================================================
+\manentry{Pure Generic Function}{symmetric}{symmetric}{Returns the transpose $C^T$ of a real or complex matrix}{proc:symmetric}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+CS = symmetric(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the matrix transpose $C^T$ of a real or complex matrix \argname{C}.
+
+\manheading{Description}
+Given an $M\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{symmetric} allocates and returns an $N\times M$ matrix \argname{CS} equal to \texttt{TRANSPOSE(C)}, so that $(C_S)_{ij} = C_{ji}$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input $M\times N$ matrix.}
+  \argitem{CS}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output $N\times M$ transposed matrix $C^T$ of the same type as \argname{C}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:), d2(:,:)
+
+allocate(m1(4,6), d1(4,6))
+call random_number(m1); call random_number(d1)
+m2 = symmetric(m1)   ! returns m1^T
+d2 = symmetric(d1)   ! returns d1^T
+\end{lstlisting}
+
+% ===================================================================
+% 11. antisymmetric
+% ===================================================================
+\manentry{Pure Generic Function}{antisymmetric}{antisymmetric}{Returns the negative transpose $-C^T$ of a real or complex matrix}{proc:antisymmetric}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+CS = antisymmetric(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the negative transpose $-C^T$ of a real or complex matrix \argname{C}.
+
+\manheading{Description}
+Given an $M\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{antisymmetric} allocates and returns an $N\times M$ matrix \argname{CS} equal to \texttt{-TRANSPOSE(C)}, so that $(C_S)_{ij} = -C_{ji}$. For an antisymmetric matrix, \texttt{antisymmetric(C)} equals \argname{C}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input $M\times N$ matrix.}
+  \argitem{CS}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output $N\times M$ negative transposed matrix $-C^T$ of the same type as \argname{C}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:), d2(:,:)
+
+allocate(m1(4,4), d1(4,4))
+call random_number(m1); call random_number(d1)
+m2 = antisymmetric(m1)   ! returns -m1^T
+d2 = antisymmetric(d1)   ! returns -d1^T
+\end{lstlisting}
+
+% ===================================================================
+% 12. isHermitian
+% ===================================================================
+\manentry{Pure Generic Function}{isHermitian}{isHermitian}{Measures the deviation $\norm{C - C^\dagger}$ of a complex matrix from Hermiticity}{proc:isHermitian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = isHermitian(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the normalized $L_1$ norm \texttt{norm(C - CONJG(TRANSPOSE(C)))} as a real number.
+
+\manheading{Description}
+The function \procname{isHermitian} quantifies how close a square \typename{complex(8)} matrix \argname{C} is to being Hermitian by computing:
+\begin{align}
+  r = \texttt{norm}(C - C^\dagger) = \frac{1}{N^2}\sum_{i,j=1}^{N} \left|C_{ij} - C_{ji}^*\right|\, .
+\end{align}
+An exact Hermitian matrix yields $r = 0.0\_8$ (or $r \lesssim 10^{-15}$ when subject to floating-point rounding).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8), dimension(:,:), intent(in)}{Input square complex matrix.}
+  \argitem{r}{real(8), scalar, return value}{The non-negative deviation norm $\texttt{norm}(C - C^\dagger)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: r
+
+call random_number(m1)
+call hermitian_set(m1)
+r = isHermitian(m1)   ! r == 0.0_8
+\end{lstlisting}
+
+% ===================================================================
+% 13. isSymmetric
+% ===================================================================
+\manentry{Pure Generic Function}{isSymmetric}{isSymmetric}{Measures the deviation $\norm{C - C^T}$ of a real or complex matrix from symmetry}{proc:isSymmetric}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = isSymmetric(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the normalized $L_1$ norm \texttt{norm(C - TRANSPOSE(C))} as a \typename{real(8)} scalar.
+
+\manheading{Description}
+The generic function \procname{isSymmetric} quantifies how close a square \typename{complex(8)} or \typename{real(8)} matrix \argname{C} is to being symmetric ($C = C^T$) by evaluating:
+\begin{align}
+  r = \texttt{norm}(C - C^T) = \frac{1}{N^2}\sum_{i,j=1}^{N} \left|C_{ij} - C_{ji}\right|\, .
+\end{align}
+An exact symmetric matrix yields $r = 0.0\_8$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square matrix.}
+  \argitem{r}{real(8), scalar, return value}{The non-negative deviation norm $\texttt{norm}(C - C^T)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: d1(8,8), r1, r2
+
+call random_number(m1); call symmetric_set(m1)
+call random_number(d1); call symmetric_set(d1)
+r1 = isSymmetric(m1)   ! r1 == 0.0_8
+r2 = isSymmetric(d1)   ! r2 == 0.0_8
+\end{lstlisting}
+
+% ===================================================================
+% 14. isAntisymmetric
+% ===================================================================
+\manentry{Pure Generic Function}{isAntisymmetric}{isAntisymmetric}{Measures the deviation $\norm{C + C^T}$ of a real or complex matrix from antisymmetry}{proc:isAntisymmetric}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = isAntiSymmetric(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the normalized $L_1$ norm \texttt{norm(C + TRANSPOSE(C))} as a \typename{real(8)} scalar.
+
+\manheading{Description}
+The generic function \procname{isAntisymmetric} (case-insensitive in Fortran: \texttt{isAntiSymmetric}) quantifies how close a square \typename{complex(8)} or \typename{real(8)} matrix \argname{C} is to being skew-symmetric ($C = -C^T$) by evaluating:
+\begin{align}
+  r = \texttt{norm}(C + C^T) = \frac{1}{N^2}\sum_{i,j=1}^{N} \left|C_{ij} + C_{ji}\right|\, .
+\end{align}
+An exact antisymmetric matrix yields $r = 0.0\_8$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input square matrix.}
+  \argitem{r}{real(8), scalar, return value}{The non-negative deviation norm $\texttt{norm}(C + C^T)$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8)
+real   (8) :: d1(8,8), r1, r2
+
+call random_number(m1); call antisymmetric_set(m1)
+call random_number(d1); call antisymmetric_set(d1)
+r1 = isAntiSymmetric(m1)   ! r1 == 0.0_8
+r2 = isAntiSymmetric(d1)   ! r2 == 0.0_8
+\end{lstlisting}
+
+% ===================================================================
+% 15. diagonal
+% ===================================================================
+\manentry{Pure Generic Function}{diagonal}{diagonal}{Extracts the diagonal of a matrix as a vector, or constructs a diagonal matrix from a vector or scalar}{proc:diagonal}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d = diagonal(C)      ! Extract diagonal vector from matrix C(:,:)
+C = diagonal(d)      ! Construct diagonal matrix from vector d(:)
+C = diagonal(z, n)   ! Construct n x n complex diagonal matrix z * I_n
+C = diagonal(r, n)   ! Construct n x n real    diagonal matrix r * I_n
+\end{lstlisting}
+
+\manheading{Brief}
+Overloaded function that either extracts the main diagonal of a rank-2 matrix into a rank-1 vector, or builds a rank-2 diagonal matrix from a rank-1 vector or a constant scalar value.
+
+\manheading{Description}
+The generic interface \procname{diagonal} resolves to six module procedures depending on the rank and type of its arguments:
+\begin{enumerate}
+  \item \textbf{Matrix $\to$ Vector (\texttt{d = diagonal(C)})}: Given a rank-2 $M\times N'$ matrix \argname{C}, allocates and returns a 1D vector \argname{d} of length $N = \min(M, N')$ (\texttt{min(size(C,1), size(C,2))}, so that non-square matrices are accepted) matching the data type of \argname{C} (\typename{complex(8)} for complex \argname{C}, \typename{real(8)} for real \argname{C}), with $d(i) = C(i,i)$ for $i=1,\ldots,N$.
+  \item \textbf{Vector $\to$ Matrix (\texttt{C = diagonal(d)})}: Given a 1D \typename{complex(8)} or \typename{real(8)} vector \argname{d} of length $N = \texttt{size(d)}$, allocates and returns an $N\times N$ matrix \argname{C} initialized to zero off the diagonal and $C(i,i) = d(i)$ on the diagonal.
+  \item \textbf{Scalar $\to$ Matrix (\texttt{C = diagonal(z, n)} or \texttt{diagonal(r, n)})}: Given a \typename{complex(8)} scalar \argname{z} (or \typename{real(8)} scalar \argname{r}) and an integer dimension \argname{n}, allocates and returns an $n\times n$ \typename{complex(8)} (or \typename{real(8)}) diagonal matrix with $C(i,i) = z$ (or $r$) and $C(i,j) = 0$ for $i\neq j$.
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in) [or allocatable return value]}{In \texttt{diagonal(C)}, the input rank-2 matrix; in \texttt{diagonal(d)} and \texttt{diagonal(s,n)}, the returned allocatable $N\times N$ diagonal matrix.}
+  \argitem{d}{complex(8) or real(8), dimension(:), intent(in) [or allocatable return value]}{In \texttt{diagonal(d)}, the input 1D vector of diagonal entries; in \texttt{diagonal(C)}, the returned 1D vector of length \texttt{min(size(C,1), size(C,2))}.}
+  \argitem{z, r}{complex(8) or real(8), scalar, intent(in)}{Constant value placed along the main diagonal in the two-argument constructor form.}
+  \argitem{n}{integer, scalar, intent(in)}{Dimension $n$ of the $n\times n$ matrix constructed in the two-argument form.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), w1(:)
+real   (8), allocatable :: d1(:,:), v1(:)
+complex(8)              :: z = (2.0_8, -1.0_8)
+real   (8)              :: r = 3.5_8
+integer                 :: n = 4
+
+allocate(m1(n,n), d1(n,n))
+call random_number(m1); call random_number(d1)
+
+w1 = diagonal(m1)     ! extract diagonal: w1(i) = m1(i,i)
+v1 = diagonal(d1)     ! extract diagonal: v1(i) = d1(i,i)
+
+m1 = diagonal(w1)     ! build diagonal matrix: m1(i,i) = w1(i), m1(i,j)=0
+d1 = diagonal(v1)     ! build diagonal matrix: d1(i,i) = v1(i), d1(i,j)=0
+
+m1 = diagonal(z, n)   ! build 4x4 matrix with z on diagonal
+d1 = diagonal(r, n)   ! build 4x4 matrix with r on diagonal
+\end{lstlisting}
+
+% ===================================================================
+% 16. diagonalMatrix
+% ===================================================================
+\manentry{Pure Generic Function}{diagonalMatrix}{diagonalMatrix}{Constructs a diagonal matrix from the diagonal elements of an existing matrix}{proc:diagonalMatrix}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+D = diagonalMatrix(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a diagonal matrix $D$ of the same shape as $C$ having the same main diagonal as $C$ ($D_{ii} = C_{ii}$) and zero off-diagonal entries ($D_{ij} = 0$ for $i\neq j$).
+
+\manheading{Description}
+Given an $M\times N'$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{diagonalMatrix} allocates an $M\times N'$ matrix \argname{D} of the same type and shape, sets all elements to zero, and copies $D(i,i) = C(i,i)$ for $i=1,\ldots,\min(M,N')$. For a square matrix this is equivalent to \texttt{diagonal(diagonal(C))} but avoids allocating an intermediate vector; for a non-square matrix \texttt{diagonal(diagonal(C))} would instead be a square $\min(M,N')\times\min(M,N')$ matrix.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), intent(in)}{Input matrix whose main diagonal is extracted.}
+  \argitem{D}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Output diagonal matrix of the same shape as \argname{C}, with $D_{ij} = C_{ii}\delta_{ij}$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:), d2(:,:)
+
+allocate(m1(4,4), d1(4,4))
+call random_number(m1); call random_number(d1)
+
+m2 = diagonalMatrix(m1)   ! m2(i,i) = m1(i,i), m2(i,j) = 0 for i /= j
+d2 = diagonalMatrix(d1)   ! d2(i,i) = d1(i,i), d2(i,j) = 0 for i /= j
+\end{lstlisting}
+
+% ===================================================================
+% 17. identitymatrix, cidentitymatrix, didentitymatrix
+% ===================================================================
+\manentry{Pure Generic Functions}{identitymatrix, cidentitymatrix, didentitymatrix}{identitymatrix, cidentitymatrix, didentitymatrix}{Construct $n\times n$ complex or real identity matrices $I_n$}{proc:identitymatrix}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{cidentitymatrix}} \textnormal{\footnotesize--- Complex $n\times n$ identity matrix}}{cidentitymatrix - Complex n x n identity matrix}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{didentitymatrix}} \textnormal{\footnotesize--- Real $n\times n$ identity matrix}}{didentitymatrix - Real n x n identity matrix}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m1 =  identitymatrix(n)   ! returns complex(8) n x n identity matrix
+m1 = cidentitymatrix(n)   ! returns complex(8) n x n identity matrix
+d1 = didentitymatrix(n)   ! returns real   (8) n x n identity matrix
+\end{lstlisting}
+
+\manheading{Brief}
+Allocate and return an $n\times n$ identity matrix $I_n$ ($C_{ij} = \delta_{ij}$) of type \typename{complex(8)} (\procname{identitymatrix}, \procname{cidentitymatrix}) or \typename{real(8)} (\procname{didentitymatrix}).
+
+\manheading{Description}
+These three pure functions construct the $n\times n$ unit matrix $\UnitMatrix_n$:
+\begin{itemize}
+  \item \procname{identitymatrix(n)} and \procname{cidentitymatrix(n)} both invoke the internal complex identity constructor \texttt{array2\_diagonal\_set\_identity\_complex\_matrix(n)} and return an allocatable \typename{complex(8)} array of shape $(n,n)$ with $(1.0\_8, 0.0\_8)$ on the main diagonal and $(0.0\_8, 0.0\_8)$ elsewhere.
+  \item \procname{didentitymatrix(n)} invokes \texttt{array2\_diagonal\_set\_identity\_real\_matrix(n)} and returns an allocatable \typename{real(8)} array of shape $(n,n)$ with $1.0\_8$ on the main diagonal and $0.0\_8$ elsewhere. Note that in Fortran assignment \texttt{m1 = didentitymatrix(n)}, a real identity matrix can also be assigned directly to a complex array.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, scalar, intent(in)}{The matrix dimension $n$ (for $n \le 0$ an empty $0\times 0$ array is returned).}
+  \argitem{C}{complex(8) or real(8), dimension(:,:), allocatable, return value}{The allocated $n\times n$ identity matrix $I_n$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:)
+
+m1 =  identitymatrix(8)   ! 8x8 complex(8) identity matrix
+m2 = cidentitymatrix(8)   ! 8x8 complex(8) identity matrix
+d1 = didentitymatrix(8)   ! 8x8 real   (8) identity matrix
+\end{lstlisting}
+
+% ===================================================================
+% 18. paulimatrix
+% ===================================================================
+\manentry{Pure Generic Function}{paulimatrix}{paulimatrix}{Returns the $2\times 2$ complex Pauli matrices $\sigma_0, \sigma_1, \sigma_2, \sigma_3$}{proc:paulimatrix}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+s = PauliMatrix(n)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the $2\times 2$ complex Pauli matrix $\sigma_n$ for $n \in \{0, 1, 2, 3, 4\}$, or a $2\times 2$ matrix of \procname{NaN} values for any other integer $n$.
+
+\manheading{Description}
+The pure function \procname{paulimatrix} (case-insensitive: \texttt{PauliMatrix}) returns a fixed-size $2\times 2$ \typename{complex(8)} array corresponding to the standard Pauli basis:
+\begin{align}
+  \sigma_0 = \sigma_4 = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}\, , \quad
+  \sigma_1 = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}\, , \quad
+  \sigma_2 = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}\, , \quad
+  \sigma_3 = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}\, .
+\end{align}
+Notice that both $n=0$ and $n=4$ return the $2\times 2$ unit matrix $1_2$. If $n \notin \{0,1,2,3,4\}$, all four entries of the returned $2\times 2$ matrix are set to IEEE quiet \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, scalar, intent(in)}{Index of the Pauli matrix ($0, 1, 2, 3$, or $4$).}
+  \argitem{C}{complex(8), dimension(2,2), return value}{The $2\times 2$ Pauli matrix $\sigma_n$, or \procname{NaN} if $n\notin \{0,1,2,3,4\}$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: s0(:,:), s1(:,:), s2(:,:), s3(:,:)
+
+s0 = PauliMatrix(0)   ! 2x2 identity matrix
+s1 = PauliMatrix(1)   ! sigma_1
+s2 = PauliMatrix(2)   ! sigma_2
+s3 = PauliMatrix(3)   ! sigma_3
+\end{lstlisting}
+
+% ===================================================================
+% 19. sort
+% ===================================================================
+\manentry{Generic Function}{sort}{sort}{Sorts a 1D real or complex array using Quicksort with optional permutation index tracking}{proc:sort}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+D = sort(C, [P], [by])
+\end{lstlisting}
+
+\manheading{Brief}
+Sorts a rank-1 \typename{complex(8)} or \typename{real(8)} array \argname{C} in ascending (forward) or descending (reverse) order according to a specified criterion \argname{by}, optionally recording the original indices in the permutation array \argname{P}.
+
+\manheading{Description}
+The generic function \procname{sort} allocates and returns a sorted copy \argname{D} of the 1D array \argname{C} by precomputing a real sort key array and running a bounds-guarded, tail-call-eliminated Quicksort (safe under aggressive compiler optimizations and FMA instructions such as \texttt{-march=native}). The sorting criterion and direction are controlled by the two-character string \argname{by}\texttt{(1:2)}:
+\begin{itemize}
+  \item \textbf{First character \texttt{by(1:1)} (Comparison Key)}:
+  \begin{itemize}
+    \item For \typename{complex(8)} arrays:
+      \begin{itemize}
+        \item \texttt{'M'} or \texttt{'m'}: Sort by modulus (absolute value) $|C(i)|$.
+        \item \texttt{'R'} or \texttt{'r'}: Sort by real part $\Re(C(i))$.
+        \item \texttt{'I'} or \texttt{'i'}: Sort by imaginary part $\Im(C(i))$.
+      \end{itemize}
+    \item For \typename{real(8)} arrays:
+      \begin{itemize}
+        \item \texttt{'R'}, \texttt{'r'}, \texttt{'V'}, or \texttt{'v'}: Sort by signed real value $C(i)$.
+        \item \texttt{'A'}, \texttt{'a'}, \texttt{'M'}, or \texttt{'m'}: Sort by absolute value (modulus) $|C(i)|$.
+      \end{itemize}
+  \end{itemize}
+  \item \textbf{Second character \texttt{by(2:2)} (Ordering Direction)}:
+  \begin{itemize}
+    \item \texttt{'F'} or \texttt{'f'}: Forward (ascending) order, from smallest to largest.
+    \item \texttt{'R'} or \texttt{'r'}: Reverse (descending) order, from largest to smallest.
+  \end{itemize}
+  \item \textbf{Default values}: Both characters of \argname{by(1:2)} are handled case-insensitively (including \texttt{'MF'}/\texttt{'MR'} as well as \texttt{'AF'}/\texttt{'AR'} for real arrays). When \argname{by} is omitted, the default is \texttt{by='MF'} (ascending modulus) for \typename{complex(8)} arrays and \texttt{by='RF'} (ascending real value) for \typename{real(8)} arrays. Passing an unrecognized \argname{by} string or a string shorter than 2 characters terminates execution via \texttt{matrix\_error}.
+\end{itemize}
+
+When the optional integer array \argname{P} is provided, its size is verified against \argname{C} (\texttt{size(P) == size(C)}, otherwise execution terminates via \texttt{matrix\_error}); \argname{P} is initialized to $[1, 2, \ldots, \texttt{size(C)}]$ and permuted alongside \argname{D} during sorting so that on return:
+\begin{align}
+  D(i) = C(P(i))\, , \qquad i = 1,\ldots,\texttt{size(C)}\, .
+\end{align}
+Because \argname{P} is tracked directly during partitioning, all indices $1,\ldots,N$ are preserved without repetition even when \argname{C} contains degenerate (equal) elements. Empty ($N = 0$) and single-element ($N = 1$) arrays return cleanly (with \argname{P} empty or \texttt{[1]}, respectively). Any elements whose sort key is IEEE \texttt{NaN} are partitioned to the end of \argname{D} (preserving their original indices in \argname{P}), while all non-\texttt{NaN} elements are sorted in the requested order.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:), intent(in)}{Input 1D array of length $N$ to be sorted.}
+  \argitem{P}{integer, dimension(:), optional, intent(out)}{Optional integer permutation array of length $N$, pre-allocated by the caller (\texttt{size(P) == size(C)} is checked at runtime), such that $D(i) = C(P(i))$.}
+  \argitem{by}{character(*), optional, intent(in)}{Two-character sorting specification: \texttt{'MF'}, \texttt{'MR'}, \texttt{'RF'}, \texttt{'RR'}, \texttt{'IF'}, \texttt{'IR'} for complex arrays; \texttt{'RF'} (or \texttt{'VF'}), \texttt{'RR'} (or \texttt{'VR'}), \texttt{'AF'} (or \texttt{'MF'}), \texttt{'AR'} (or \texttt{'MR'}) for real arrays.}
+  \argitem{D}{complex(8) or real(8), dimension(:), allocatable, return value}{Sorted 1D array of length $N$ matching the type of \argname{C}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: w(6), w1(6)
+real   (8) :: v(6), v1(6)
+integer    :: pos(6)
+
+call random_number(w, sigma=1.0_8)
+call random_number(v, sigma=1.0_8)
+
+w1 = sort(w)                     ! default 'MF': ascending by |w(i)|
+w1 = sort(w, by='MR')            ! descending by |w(i)|
+v1 = sort(v, by='RF')            ! ascending by signed value v(i)
+
+w1 = sort(w, by='IR', P=pos)     ! descending by Im(w(i)); w1(i) == w(pos(i))
+v1 = sort(v, by='AF', P=pos)     ! ascending by |v(i)|;    v1(i) == v(pos(i))
+\end{lstlisting}
+
+% ===================================================================
+% 20. random_sort
+% ===================================================================
+\manentry{Generic Function}{random\_sort}{random\textunderscore sort}{Randomly shuffles a 1D array, character string, or integer range using the Fisher--Yates algorithm}{proc:random_sort}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+l1  = random_sort(l)         ! Shuffle integer(4) 1D array l(:)
+v1  = random_sort(v)         ! Shuffle real   (8) 1D array v(:)
+w1  = random_sort(w)         ! Shuffle complex(8) 1D array w(:)
+str = random_sort(string)    ! Shuffle characters of a string
+l1  = random_sort(n)         ! Random permutation of integers 1..n
+l1  = random_sort(m, n)      ! Random permutation of integers m..n (m <= n)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a randomly permuted copy of an integer, real, or complex 1D array, a character string, or an integer range $[1,n]$ or $[m,n]$ via the modern Fisher--Yates shuffle.
+
+\manheading{Description}
+The generic function \procname{random\_sort} implements the unbiased $O(N)$ Fisher--Yates (Knuth) shuffle algorithm: iterating from index $i = 1$ to $N-1$, a uniform random index $j \in \{i, i+1, \ldots, N\}$ is drawn via \texttt{j = i + int(r * (N - i + 1))} and elements $i$ and $j$ are swapped. It is overloaded for five distinct input forms:
+\begin{enumerate}
+  \item \textbf{1D Array Shuffle (\texttt{random\_sort(array\_in)})}: Accepts a 1D \typename{integer}, \typename{real(8)}, or \typename{complex(8)} array and returns an allocatable copy with its elements randomly permuted.
+  \item \textbf{Character String Shuffle (\texttt{random\_sort(string)})}: Trims trailing whitespace from \argname{string} and returns an allocatable character string of length \texttt{len(trim(string))} with its characters randomly shuffled.
+  \item \textbf{Integer Range Permutation (\texttt{random\_sort(n1, [n2])})}:
+  \begin{itemize}
+    \item If called with a single integer \texttt{random\_sort(n)}, constructs the sequence $[1, 2, \ldots, n]$ and returns a random permutation of length $n$. If $n < 1$, execution terminates via \texttt{matrix\_error}.
+    \item If called with two integers \texttt{random\_sort(m, n)}, constructs the sequence $[m, m+1, \ldots, n]$ of length $n - m + 1$ and returns a random permutation. If $n - m + 1 < 1$, execution terminates via \texttt{matrix\_error}.
+  \end{itemize}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{array\_in}{integer, real(8), or complex(8) dimension(:), or character(*), intent(in)}{Input 1D array or character string to be shuffled (left unchanged).}
+  \argitem{n1}{integer, scalar, intent(in)}{Upper bound $n$ of the range $1\ldots n$ when \argname{n2} is absent, or lower bound $m$ of the range $m\ldots n$ when \argname{n2} is present.}
+  \argitem{n2}{integer, scalar, optional, intent(in)}{Upper bound $n$ of the integer range $m\ldots n$ ($n \ge m$).}
+  \argitem{array}{allocatable 1D array or character(:), return value}{The randomly shuffled array or string.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+integer   , allocatable :: l1(:)
+real   (8), allocatable :: v1(:)
+complex(8), allocatable :: w1(:)
+character(:), allocatable :: str
+
+call matrix_random_init
+
+l1  = random_sort(10)        ! random permutation of 1..10
+l1  = random_sort(5, 15)     ! random permutation of 5..15
+l1  = random_sort(l1)        ! reshuffle integer array l1
+str = random_sort('Hello')   ! random anagram of 'Hello'
+\end{lstlisting}
+
+% ===================================================================
+% 21. random_sort_array
+% ===================================================================
+\manentry{Generic Subroutine}{random\_sort\_array}{random\textunderscore sort\textunderscore array}{Randomly shuffles a 1D integer, real, or complex array in-place using the Fisher--Yates algorithm}{proc:random_sort_array}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call random_sort_array(array)
+\end{lstlisting}
+
+\manheading{Brief}
+Performs an in-place Fisher--Yates random permutation on a rank-1 \typename{integer}, \typename{real(8)}, or \typename{complex(8)} array.
+
+\manheading{Description}
+The generic subroutine \procname{random\_sort\_array} applies the same $O(N)$ Fisher--Yates shuffle as \procname{random\_sort}, but mutates the passed 1D array \argname{array} directly in-place without allocating a temporary output array.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{array}{integer, real(8), or complex(8), dimension(:), intent(inout)}{1D array whose elements are randomly permuted in-place.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+integer    :: l(5) = [1, 2, 3, 4, 5]
+real   (8) :: v(5)
+complex(8) :: w(5)
+
+call random_number(v); call random_number(w)
+call random_sort_array(l)   ! l is shuffled in-place
+call random_sort_array(v)   ! v is shuffled in-place
+call random_sort_array(w)   ! w is shuffled in-place
+\end{lstlisting}
+
+% ===================================================================
+% 22. norm
+% ===================================================================
+\manentry{Pure Generic Function}{norm}{norm}{Computes the normalized $L_1$ norm (mean absolute value of elements) of a rank-1, rank-2, or rank-3 array}{proc:norm}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = norm(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns $\texttt{SUM(ABS(C)) / SIZE(C)}$ as a \typename{real(8)} scalar for any 1D, 2D, or 3D real or complex array \argname{C}.
+
+\manheading{Description}
+The pure generic function \procname{norm} computes the average element-wise absolute value (normalized $L_1$ norm) of an array \argname{C} of rank 1, 2, or 3:
+\begin{align}
+  \text{Rank 1:}\quad \texttt{norm}(v) &= \frac{1}{M}\sum_{i=1}^{M} |v_i|\, , \\
+  \text{Rank 2:}\quad \texttt{norm}(A) &= \frac{1}{M N}\sum_{i=1}^{M}\sum_{j=1}^{N} |A_{ij}|\, , \\
+  \text{Rank 3:}\quad \texttt{norm}(T) &= \frac{1}{M N K}\sum_{i=1}^{M}\sum_{j=1}^{N}\sum_{k=1}^{K} |T_{ijk}|\, ,
+\end{align}
+where $|z| = \sqrt{(\Re z)^2 + (\Im z)^2}$ for complex arrays. Normalizing by the total number of elements $\texttt{SIZE(C)}$ makes \procname{norm} scale-invariant with respect to array size, which is convenient for convergence tests and numerical residual checks across different matrix sizes $N$.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:), (:,:), or (:,:,:), intent(in)}{Input array of rank 1, 2, or 3.}
+  \argitem{r}{real(8), scalar, return value}{The mean absolute element value $\texttt{SUM(ABS(C)) / SIZE(C)} \ge 0$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: t1(4,4,3), m1(4,4), w1(4)
+real   (8) :: s1(4,4,3), d1(4,4), v1(4), r
+
+call random_number(t1); call random_number(m1); call random_number(w1)
+call random_number(s1); call random_number(d1); call random_number(v1)
+
+r = norm(t1) ; r = norm(s1)   ! rank-3 arrays: sum_ijk |C_ijk| / (4*4*3)
+r = norm(m1) ; r = norm(d1)   ! rank-2 arrays: sum_ij  |C_ij|  / (4*4)
+r = norm(w1) ; r = norm(v1)   ! rank-1 arrays: sum_i   |C_i|   / 4
+\end{lstlisting}

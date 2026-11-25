@@ -1,0 +1,340 @@
+% ===================================================================
+% Subsection 2.2: Matrix Multiplication
+% ===================================================================
+\subsection{Matrix Multiplication}
+\label{subsec:matrix_multiplication}
+
+\modname{array\_mod} provides five complementary interfaces for matrix--matrix and matrix--vector multiplication backed by Level-2 and Level-3 \texttt{BLAS} routines (\texttt{zgemm}, \texttt{dgemm}, \texttt{zhemm}, \texttt{dsymm}, \texttt{zherk}, \texttt{dsyrk}, \texttt{zgemv}, \texttt{dgemv}, \texttt{zhemv}, and \texttt{dsymv}):
+\begin{enumerate}
+  \item \procname{operator(.mm.)}: Infix operator overloading for matrix--matrix, matrix--vector, and vector--matrix products across all combinations of \typename{complex(8)} and \typename{real(8)} operands.
+  \item \procname{lmatmul}: Functional interface supporting general products, Hermitian/symmetric matrix multiplication, rank-$k$ products ($A A^\dagger, A^\dagger A, A A^T, A^T A$), and transposed/conjugate-transposed matrix--vector products.
+  \item \procname{mmmult}: High-performance subroutine interface for matrix--matrix and rank-$k$ products without temporary array allocation overhead.
+  \item \procname{mvmult}: High-performance subroutine interface for right matrix--vector multiplication ($w = A v$, $w = A^T v$, $w = A^\dagger v$).
+  \item \procname{vmmult}: High-performance subroutine interface for left vector--matrix multiplication ($w = v A$, i.e., $w_i = \sum_j v_j A_{ji}$).
+\end{enumerate}
+
+\begin{notebox}[Preservation of Custom Array Bounds]
+In Fortran, when the target array on the left-hand side of an assignment (e.g., \texttt{m3 = lmatmul(m1, m2)} or \texttt{m3 = (m1 .mm. m2)}) is already allocated with conformable shape and custom lower/upper bounds \texttt{m3(is:ie, ks:ke)}, those bounds are preserved on assignment (unless compiler flags or shape mismatches trigger automatic reallocation, in which case the lower bounds reset to \texttt{1}). In the subroutine forms (\procname{mmmult}, \procname{mvmult}, \procname{vmmult}), the target array is passed as an \intentname{intent(inout)} argument and its bounds are always preserved.
+\end{notebox}
+
+% ===================================================================
+% 23. operator(.mm.)
+% ===================================================================
+\manentry{Pure Generic Operator}{operator(.mm.)}{operator(.mm.)}{Infix operator for BLAS-accelerated matrix--matrix, matrix--vector, and vector--matrix multiplication}{proc:operator_mm}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! Matrix-Matrix Multiplication:
+C = (A .mm. B)
+
+! Matrix-Vector and Vector-Matrix Multiplication:
+w = (A .mm. v)      ! w_i = sum_j A_ij v_j
+w = (v .mm. A)      ! w_i = sum_j v_j  A_ji = (A^T v)_i
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluates matrix--matrix ($A B$), matrix--vector ($A v$), or vector--matrix ($v^T A$) products for any combination of \typename{complex(8)} and \typename{real(8)} arrays by delegating to \procname{lmatmul}.
+
+\manheading{Description}
+The binary operator \procname{.mm.} is overloaded across 12 module procedures covering all combinations of \typename{complex(8)} and \typename{real(8)} rank-2 matrices and rank-1 vectors:
+\begin{itemize}
+  \item \textbf{Matrix--Matrix (\texttt{C1 .mm. C2})}: Calls \texttt{lmatmul(C1, C2)}. If one operand is \typename{real(8)} and the other is \typename{complex(8)}, the real array is promoted to a temporary \typename{complex(8)} array before calling \texttt{lmatmul}, and a \typename{complex(8)} matrix of shape $(\texttt{size(C1,1)}, \texttt{size(C2,2)})$ is returned.
+  \item \textbf{Matrix--Vector (\texttt{C1 .mm. v2})}: Calls \texttt{lmatmul(A=C1, v=v2)} to compute $v_{3,i} = \sum_j (C_1)_{ij} v_{2,j}$ of length \texttt{size(C1,1)}. Mixed real/complex operands are promoted to \typename{complex(8)}.
+  \item \textbf{Vector--Matrix (\texttt{v1 .mm. C2})}: Calls \texttt{lmatmul(v=v1, A=C2, type='T')} to compute $v_{3,i} = \sum_j v_{1,j} (C_2)_{ji}$ of length \texttt{size(C2,2)}. Mixed real/complex operands are promoted to \typename{complex(8)}.
+\end{itemize}
+If the inner dimensions do not match, all elements of the returned array are set to IEEE \procname{NaN}.
+
+\begin{warnbox}[Operator Precedence and Specialized BLAS Calls]
+\begin{enumerate}
+  \item \textbf{Always enclose \texttt{.mm.} expressions in parentheses!} In the Fortran standard, user-defined operators like \texttt{.mm.} have the \emph{lowest} operator precedence---lower than addition (\texttt{+}), subtraction (\texttt{-}), and even logical operators. Thus, \lcodef{m1 .mm. m2 - m3} is parsed by the compiler as \lcodef{m1 .mm. (m2 - m3)}, \emph{not} \lcodef{(m1 .mm. m2) - m3}.
+  \item The procedures overloaded by \texttt{.mm.} always call the general \texttt{BLAS} routines (\texttt{zgemm}/\texttt{dgemm}/\texttt{zgemv}/\texttt{dgemv}) and do not invoke the Hermitian or symmetric \texttt{BLAS} routines. Use \procname{lmatmul} or \procname{mmmult} when you want to pass \texttt{mtype='ZH'} or \texttt{mtype='DS'}.
+\end{enumerate}
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C1}{complex(8) or real(8), dimension(:,:) or dimension(:), intent(in)}{Left operand: an $M\times K$ matrix or a length-$M$ vector.}
+  \argitem{C2}{complex(8) or real(8), dimension(:,:) or dimension(:), intent(in)}{Right operand: a $K\times N$ matrix (or $M\times N$ when \argname{C1} is a vector) or a length-$K$ vector.}
+  \argitem{C3 / v3}{complex(8) or real(8), allocatable rank-2 or rank-1 array, return value}{Resulting matrix or vector product (\typename{real(8)} if both operands are real, \typename{complex(8)} otherwise).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,6), m2(6,5), m3(4,5), v1(6), v2(4)
+real   (8) :: d1(4,6), d2(6,5), d3(4,5), u1(6), u2(4)
+
+call random_number(m1); call random_number(m2); call random_number(v1); call random_number(v2)
+call random_number(d1); call random_number(d2); call random_number(u1); call random_number(u2)
+
+! Matrix-matrix products (pure and mixed real/complex):
+m3 = (m1 .mm. m2)
+m3 = (m1 .mm. d2)
+m3 = (d1 .mm. m2)
+d3 = (d1 .mm. d2)
+
+! Matrix-vector and vector-matrix products:
+v2 = (m1 .mm. v1) ; v1 = (v2 .mm. m1)
+v2 = (m1 .mm. u1) ; v1 = (u2 .mm. m1)
+v2 = (d1 .mm. v1) ; v1 = (v2 .mm. d1)
+u2 = (d1 .mm. u1) ; u1 = (u2 .mm. d1)
+\end{lstlisting}
+
+% ===================================================================
+% 24. lmatmul
+% ===================================================================
+\manentry{Pure Generic Function}{lmatmul}{lmatmul}{BLAS-backed matrix--matrix, rank-$k$, and matrix--vector multiplication function}{proc:lmatmul}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! 1. Two-Matrix Multiplication (A . B):
+C = lmatmul(A, B, [mtype])
+
+! 2. Single-Matrix Rank-k Multiplication (A . A^\dagger, A^\dagger . A, A . A^T, A^T . A):
+C = lmatmul(A, [side])
+
+! 3. Matrix-Vector Multiplication (A . v, A^T . v, A^\dagger . v):
+w = lmatmul(A, v, [type])
+w = lmatmul(v=v, A=A, [type])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes matrix--matrix products, Hermitian/symmetric rank-$k$ products, or matrix--vector products using \texttt{BLAS} routines \texttt{zgemm}, \texttt{dgemm}, \texttt{zhemm}, \texttt{dsymm}, \texttt{zherk}, \texttt{dsyrk}, \texttt{zgemv}, \texttt{dgemv}, \texttt{zhemv}, and \texttt{dsymv}.
+
+\manheading{Description}
+The generic function \procname{lmatmul} provides three distinct overloading families for contiguous \typename{complex(8)} or \typename{real(8)} arrays:
+\begin{enumerate}
+  \item \textbf{Matrix--Matrix Multiplication (\texttt{C = lmatmul(A, B, [mtype])})}:
+  Given an $M\times K$ matrix \argname{A} and a $K'\times N$ matrix \argname{B} of the same type (\typename{complex(8)} or \typename{real(8)}), allocates and returns the $M\times N$ product $C = A B$:
+  \begin{itemize}
+    \item The matrix type is read from \argname{mtype} case-insensitively: a one-character string is the type itself (\texttt{'H'}, \texttt{'S'}, \texttt{'G'}), a longer string supplies it in its second character (\texttt{'ZH'}, \texttt{'DS'}, \texttt{'ZG'}, \texttt{'DG'}).
+    \item By default (\argname{mtype} absent, or a type other than \texttt{'H'}/\texttt{'S'}), calls \texttt{zgemm} (complex) or \texttt{dgemm} (real).
+    \item If \texttt{mtype='ZH'} (or \texttt{'H'}) for complex matrices, \argname{A} is assumed to be an $M\times M$ Hermitian matrix and \texttt{zhemm('L','U',...)} is called (referencing the upper triangle of \argname{A}; \argname{B} does not need to be Hermitian).
+    \item If \texttt{mtype='DS'} (or \texttt{'S'}) for real matrices, \argname{A} is assumed to be an $M\times M$ symmetric matrix and \texttt{dsymm('L','U',...)} is called (referencing the upper triangle of \argname{A}).
+    \item If $K \neq K'$ (or if $M \neq K$ when \texttt{'H'}/\texttt{'S'} is requested), the returned $M\times N$ array is filled with IEEE \procname{NaN}.
+  \end{itemize}
+
+  \item \textbf{Single-Matrix Rank-$k$ Product (\texttt{C = lmatmul(A, [side])})}:
+  Given an $M\times N$ matrix \argname{A}, uses the specialized rank-$k$ update \texttt{BLAS} routines \texttt{zherk} (complex) or \texttt{dsyrk} (real) to compute the upper triangle of the Hermitian/symmetric product in roughly half the operations of a full matrix multiply, and then mirrors the upper triangle into the lower triangle:
+  \begin{itemize}
+    \item If \argname{side} is omitted, blank, or \texttt{side='N'}: returns the $M\times M$ matrix $C = A A^\dagger$ (complex) or $C = A A^T$ (real).
+    \item If \texttt{side(1:1)} $\in \{\texttt{'C','c','T','t','H','h','S','s','L','l'}\}$ (e.g., \texttt{side='H'} or \texttt{side='S'}): returns the $N\times N$ matrix $C = A^\dagger A$ (complex) or $C = A^T A$ (real).
+    \item Any other value of \texttt{side(1:1)} returns an $M\times M$ array filled with IEEE \procname{NaN}.
+  \end{itemize}
+
+  \item \textbf{Matrix--Vector Multiplication (\texttt{w = lmatmul(A, v, [type])})}:
+  Given an $M\times N$ matrix \argname{A} and a 1D vector \argname{v} of the same type, computes (all \argname{type} selectors case-insensitive):
+  \begin{itemize}
+    \item \texttt{type='N'} (or \texttt{'n'}, default): $w = A v$, i.e., $w_i = \sum_{j=1}^{N} A_{ij} v_j$ of length $M$ (requires $\texttt{size(v)} == N$), via \texttt{zgemv('N',...)} or \texttt{dgemv('N',...)}.
+    \item \texttt{type='T'} (or \texttt{'t'}): $w = A^T v = v^T A$, i.e., $w_i = \sum_{j=1}^{M} v_j A_{ji}$ of length $N$ (requires $\texttt{size(v)} == M$), via \texttt{zgemv('T',...)} or \texttt{dgemv('T',...)}. Note that using Fortran keyword arguments \lcodef{lmatmul(v=v2, A=m1, type='T')} provides a natural left-multiplication syntax.
+    \item \texttt{type='C'} (or \texttt{'c'}): For complex arrays, $w = A^\dagger v$, i.e., $w_i = \sum_{j=1}^{M} A_{ji}^* v_j$ of length $N$ (requires $\texttt{size(v)} == M$), via \texttt{zgemv('C',...)}. (For real arrays, \texttt{'C'}/\texttt{'c'} is equivalent to \texttt{'T'}.)
+    \item \texttt{type='H'}, \texttt{'h'}, \texttt{'S'}, or \texttt{'s'}: For complex arrays, \texttt{type='H'} or \texttt{'h'} assumes \argname{A} is an $M\times M$ Hermitian matrix and computes $w = A v$ via \texttt{zhemv('U',...)} (referencing only the upper triangle of \argname{A}). For real arrays, \texttt{type='S'}, \texttt{'s'}, \texttt{'H'}, or \texttt{'h'} assumes \argname{A} is an $M\times M$ real symmetric matrix and computes $w = A v$ via \texttt{dsymv('U',...)} (referencing only the upper triangle of \argname{A}, requiring $M = N = \texttt{size(v)}$).
+    \item If \argname{A} and \argname{v} are non-conformable, if \argname{A} is non-square when \texttt{'H'}/\texttt{'S'} is selected, or if \argname{type} is unrecognized (including an empty \texttt{type=''}), the returned vector \argname{w} is filled with IEEE \procname{NaN}. Conformable 0-sized inputs (real or complex) return a 0-sized or zero vector safely without calling \texttt{BLAS}.
+  \end{itemize}
+\end{enumerate}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{A}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input matrix ($M\times K$ in two-matrix form; $M\times N$ in single-matrix and matrix--vector forms).}
+  \argitem{B}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Right-hand $K\times N$ input matrix in the two-matrix form.}
+  \argitem{v}{complex(8) or real(8), dimension(:), contiguous, intent(in)}{Input vector in the matrix--vector form.}
+  \argitem{mtype}{character(*), optional, intent(in)}{In \texttt{lmatmul(A,B,mtype)}: \texttt{'ZH'} (or \texttt{'H'}) if complex \argname{A} is Hermitian, \texttt{'DS'} (or \texttt{'S'}) if real \argname{A} is symmetric, or \texttt{'ZG'}/\texttt{'DG'} (default) for general matrices.}
+  \argitem{side}{character(*), optional, intent(in)}{In \texttt{lmatmul(A,side)}: \texttt{'N'} (default) for $A A^\dagger$ ($A A^T$), or \texttt{'H'}/\texttt{'S'}/\texttt{'C'}/\texttt{'T'}/\texttt{'L'} for $A^\dagger A$ ($A^T A$); any other character gives a \procname{NaN}-filled result.}
+  \argitem{type}{character(*), optional, intent(in)}{In \texttt{lmatmul(A,v,type)} (case-insensitive): \texttt{'N'} (default) for $A v$, \texttt{'T'} for $A^T v$, \texttt{'C'} for $A^\dagger v$ (or $A^T v$ for real), \texttt{'H'} for Hermitian $A v$ (complex \texttt{zhemv}) or symmetric $A v$ (real \texttt{dsymv}), and \texttt{'S'} for real symmetric $A v$ (\texttt{dsymv}).}
+  \argitem{C / w}{complex(8) or real(8), allocatable rank-2 or rank-1 array, return value}{The resulting product matrix \argname{C} or vector \argname{w} (or \procname{NaN} on dimension mismatch).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,6), m2(6,5), m3(4,5), m4(4,4), m5(6,6), m6(4,6), mh(4,4)
+complex(8) :: v1(6), v2(4), v3(4), v4(6)
+real   (8) :: d1(4,6), d2(6,5), d3(4,5), d4(4,4), d5(6,6), d6(4,6), ds(4,4)
+real   (8) :: u1(6), u2(4), u3(4), u4(6)
+
+call random_number(m1); call random_number(m2); call random_number(mh); call hermitian_set(mh)
+call random_number(d1); call random_number(d2); call random_number(ds); call symmetric_set(ds)
+call random_number(v1); call random_number(v2); call random_number(u1); call random_number(u2)
+
+! Matrix-matrix and rank-k products:
+m3 = lmatmul(m1, m2)
+m6 = lmatmul(mh, m1, mtype='ZH')   ! mh is 4x4 Hermitian, m1 is 4x6 general: m6 is 4x6
+m4 = lmatmul(m1)                   ! m4 = m1 . m1^\dagger (4x4)
+m5 = lmatmul(m1, side='H')         ! m5 = m1^\dagger . m1 (6x6)
+
+d3 = lmatmul(d1, d2)
+d6 = lmatmul(ds, d1, mtype='DS')   ! ds is 4x4 symmetric, d1 is 4x6 general: d6 is 4x6
+d4 = lmatmul(d1)                   ! d4 = d1 . d1^T (4x4)
+d5 = lmatmul(d1, side='S')         ! d5 = d1^T . d1 (6x6)
+
+! Matrix-vector products:
+v3 = lmatmul(m1, v1)               ! v3 = m1 . v1
+v4 = lmatmul(v=v2, A=m1, type='T') ! v4 = m1^T . v2
+v4 = lmatmul(m1, v2, type='C')     ! v4 = m1^\dagger . v2
+v3 = lmatmul(mh, v2, type='H')     ! v3 = mh . v2 (mh assumed Hermitian)
+
+u3 = lmatmul(d1, u1)               ! u3 = d1 . u1
+u4 = lmatmul(v=u2, A=d1, type='T') ! u4 = d1^T . u2
+u3 = lmatmul(ds, u2, type='S')     ! u3 = ds . u2 (ds assumed symmetric)
+\end{lstlisting}
+
+% ===================================================================
+% 25. mmmult
+% ===================================================================
+\manentry{Pure Generic Subroutine}{mmmult}{mmmult}{Zero-allocation BLAS subroutine for matrix--matrix and rank-$k$ multiplication}{proc:mmmult}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+! 1. Two-Matrix Multiplication (C = A . B):
+call mmmult(A, B, C, [mtype])
+
+! 2. Single-Matrix Rank-k Multiplication (C = A . A^\dagger, A^\dagger . A, A . A^T, A^T . A):
+call mmmult(A, C, [side])
+\end{lstlisting}
+
+\manheading{Brief}
+Subroutine counterpart of \procname{lmatmul} that writes the matrix product $C = A B$ or rank-$k$ product $C = A A^\dagger, A^\dagger A, A A^T, A^T A$ directly into a pre-allocated output array \argname{C}.
+
+\manheading{Description}
+For performance-critical inner loops, \procname{mmmult} avoids dynamic memory allocation of the result by writing the result directly into the caller-supplied \intentname{intent(inout)} array \argname{C}. As shown in the benchmarks in Section~\ref{sec:performance}, \procname{mmmult} achieves the exact same execution speed as raw Fortran~77 calls to \texttt{zgemm}/\texttt{dgemm}.
+\begin{itemize}
+  \item \textbf{Three-matrix call \texttt{call mmmult(A, B, C, [mtype])}}: Computes $C = A B$ for $M\times K$ matrix \argname{A}, $K\times N$ matrix \argname{B}, and $M\times N$ matrix \argname{C} using \texttt{zgemm}/\texttt{dgemm} (or \texttt{zhemm}/\texttt{dsymm} when \texttt{mtype='ZH'} or \texttt{'DS'}).
+  \item \textbf{Two-matrix call \texttt{call mmmult(A, C, [side])}}: Computes $C = A A^\dagger$ (complex) or $C = A A^T$ (real) of size $M\times M$ by default, or $C = A^\dagger A$ / $C = A^T A$ of size $N\times N$ when \texttt{side(1:1)} $\in \{\texttt{'C','T','H','S','L'}\}$ (case-insensitive), using \texttt{zherk} or \texttt{dsyrk}. Any other value of \texttt{side(1:1)} fills \argname{C} with IEEE \procname{NaN}.
+\end{itemize}
+\argname{C} does not need to be initialized: the \texttt{BLAS} routines are called with $\beta=0$, so the previous contents of \argname{C} (even \procname{NaN}) are never read, and \argname{C} is set to zero explicitly only when the inner dimension is $0$. If the dimensions of \argname{A}, \argname{B}, and \argname{C} are not conformable, \argname{C} is filled with IEEE \procname{NaN} and the subroutine returns immediately.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{A}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input matrix ($M\times K$ in 3-matrix form; $M\times N$ in 2-matrix form).}
+  \argitem{B}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Second input matrix ($K\times N$) in the 3-matrix form.}
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(inout)}{Pre-allocated output matrix ($M\times N$ in 3-matrix form; $M\times M$ or $N\times N$ in 2-matrix form).}
+  \argitem{mtype}{character(*), optional, intent(in)}{Symmetry hint for \argname{A} in the 3-matrix form: \texttt{'ZH'} (Hermitian) or \texttt{'DS'} (real symmetric).}
+  \argitem{side}{character(*), optional, intent(in)}{Orientation selector in the 2-matrix form: \texttt{'N'} (default) for $A A^\dagger$ ($A A^T$), or \texttt{'H'}/\texttt{'S'}/\texttt{'C'}/\texttt{'T'}/\texttt{'L'} for $A^\dagger A$ ($A^T A$); any other character fills \argname{C} with \procname{NaN}.}
+\end{description}
+
+\begin{warnbox}[Output Must Not Alias an Input]
+In \procname{mmmult}, \procname{mvmult}, and \procname{vmmult} the output argument must be a different array from the inputs. Calls such as \lcodef{call mmmult(A, B, A)} or \lcodef{call mvmult(A, v, v)} are invalid Fortran (an \intentname{intent(inout)} argument aliasing an \intentname{intent(in)} argument) and give wrong results; use a temporary array instead.
+\end{warnbox}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8), m2(8,8), m3(8,8), m4(8,8), m5(8,8)
+real   (8) :: d1(8,8), d2(8,8), d3(8,8), d4(8,8), d5(8,8)
+
+call random_number(m1); call random_number(m2)
+call random_number(d1); call random_number(d2)
+
+call mmmult(m1, m2, m3)              ! m3 = m1 . m2
+call mmmult(m1, m4)                  ! m4 = m1 . m1^\dagger
+call mmmult(m1, m5, side='H')        ! m5 = m1^\dagger . m1
+call mmmult(m4, m2, m3, mtype='ZH')  ! m4 is Hermitian
+
+call mmmult(d1, d2, d3)              ! d3 = d1 . d2
+call mmmult(d1, d4)                  ! d4 = d1 . d1^T
+call mmmult(d1, d5, side='S')        ! d5 = d1^T . d1
+call mmmult(d4, d2, d3, mtype='DS')  ! d4 is Symmetric
+\end{lstlisting}
+
+% ===================================================================
+% 26. mvmult
+% ===================================================================
+\manentry{Pure Generic Subroutine}{mvmult}{mvmult}{Zero-allocation BLAS subroutine for matrix--vector multiplication}{proc:mvmult}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mvmult(A, v, w, [type])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the matrix--vector product $w = A v$, $w = A^T v$, or $w = A^\dagger v$ into a pre-allocated output vector \argname{w} using \texttt{BLAS} \texttt{zgemv}, \texttt{zhemv}, \texttt{dgemv}, or \texttt{dsymv}.
+
+\manheading{Description}
+The generic subroutine \procname{mvmult} multiplies an $M\times N$ matrix \argname{A} by a 1D vector \argname{v} and stores the result in the pre-allocated 1D vector \argname{w} (both \typename{complex(8)} or both \typename{real(8)}; all \argname{type} selectors case-insensitive):
+\begin{itemize}
+  \item \texttt{type='N'} (or \texttt{'n'}, default): $w_i = \sum_{j=1}^{N} A_{ij} v_j$ ($\texttt{size(v)}=N$, $\texttt{size(w)}=M$).
+  \item \texttt{type='T'} (or \texttt{'t'}): $w_i = \sum_{j=1}^{M} v_j A_{ji}$ ($\texttt{size(v)}=M$, $\texttt{size(w)}=N$).
+  \item \texttt{type='C'} (or \texttt{'c'}): $w_i = \sum_{j=1}^{M} v_j A_{ji}^*$ for complex arrays, or $w_i = \sum_{j=1}^{M} v_j A_{ji}$ for real arrays ($\texttt{size(v)}=M$, $\texttt{size(w)}=N$).
+  \item \texttt{type='H'}, \texttt{'h'}, \texttt{'S'}, or \texttt{'s'}: $w_i = \sum_{j=1}^{M} A_{ij} v_j$ requiring $M = N = \texttt{size(v)} = \texttt{size(w)}$ and referencing only the upper triangle of \argname{A}: \texttt{type='H'}/\texttt{'h'} calls \texttt{zhemv('U',...)} assuming Hermitian \argname{A} for complex arrays, while \texttt{type='S'}/\texttt{'s'}/\texttt{'H'}/\texttt{'h'} calls \texttt{dsymv('U',...)} assuming symmetric \argname{A} for real arrays.
+\end{itemize}
+If any array dimension is non-conformable (including non-square \argname{A} for \texttt{'H'}/\texttt{'S'}) or \argname{type} is unrecognized (including an empty \texttt{type=''}), \argname{w} is filled with IEEE \procname{NaN}. Conformable 0-sized inputs (real or complex) return safely without calling \texttt{BLAS}; when the inner dimension is $0$, \argname{w} is set to zero.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{A}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $M\times N$ matrix.}
+  \argitem{v}{complex(8) or real(8), dimension(:), contiguous, intent(in)}{Input vector of length $N$ (for \texttt{'N'}, \texttt{'H'}, \texttt{'S'}) or $M$ (for \texttt{'T'}, \texttt{'C'}).}
+  \argitem{w}{complex(8) or real(8), dimension(:), contiguous, intent(inout)}{Pre-allocated output vector of length $M$ (for \texttt{'N'}, \texttt{'H'}, \texttt{'S'}) or $N$ (for \texttt{'T'}, \texttt{'C'}).}
+  \argitem{type}{character(*), optional, intent(in)}{Case-insensitive operation selector: \texttt{'N'} (default), \texttt{'T'}, \texttt{'C'}, \texttt{'H'} (Hermitian for complex, symmetric for real), or \texttt{'S'} (symmetric for real).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(8,8), v1(8), v3(8)
+real   (8) :: ds(8,8), u1(8), u3(8)
+
+call random_number(m1); call random_number(v1)
+call random_number(ds); call random_number(u1)
+
+call mvmult(m1, v1, v3)            ! v3_i = m1_ij v1_j
+call mvmult(m1, v1, v3, type='T')  ! v3_j = v1_i  m1_ij
+call mvmult(m1, v1, v3, type='C')  ! v3_j = v1_i (m1_ij)*
+
+call hermitian_set(m1)
+call mvmult(m1, v1, v3, type='H')  ! v3_i = m1_ij v1_j (m1 assumed Hermitian)
+
+call symmetric_set(ds)
+call mvmult(ds, u1, u3, type='S')  ! u3_i = ds_ij u1_j (ds assumed symmetric)
+\end{lstlisting}
+
+% ===================================================================
+% 27. vmmult
+% ===================================================================
+\manentry{Pure Generic Subroutine}{vmmult}{vmmult}{Zero-allocation BLAS subroutine for left vector--matrix multiplication}{proc:vmmult}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vmmult(v, A, w)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the left vector--matrix product $w = v^T A$ ($w_i = \sum_{j=1}^{M} v_j A_{ji}$) into a pre-allocated output vector \argname{w} using \texttt{BLAS} \texttt{zgemv('T',...)} or \texttt{dgemv('T',...)}.
+
+\manheading{Description}
+The generic subroutine \procname{vmmult} multiplies a length-$M$ row vector \argname{v} from the left with an $M\times N$ matrix \argname{A} and writes the resulting length-$N$ vector into \argname{w} (all \typename{complex(8)} or all \typename{real(8)}):
+\begin{align}
+  w_i = \sum_{j=1}^{M} v_j\, A_{ji} = (A^T v)_i\, , \qquad i = 1,\ldots,N\, .
+\end{align}
+Internally, it invokes \texttt{zgemv('T', M, N, ...)} or \texttt{dgemv('T', M, N, ...)}. Because Fortran stores arrays in column-major order, computing $w_i = \sum_j v_j A_{ji}$ via \texttt{gemv('T')} accesses each column $A_{:,i}$ contiguously in memory and computes dot products along contiguous memory addresses. On multi-threaded supercomputer architectures (such as ARIS, see Table~\ref{tab:b7}), \procname{vmmult} can be up to $2\times$ faster than \procname{mvmult} for large $N \ge 250$.
+
+If $\texttt{size(v)} \neq M$ or $\texttt{size(w)} \neq N$, \argname{w} is filled with IEEE \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{v}{complex(8) or real(8), dimension(:), contiguous, intent(in)}{Input left-multiplying vector of length $M = \texttt{size(A,1)}$.}
+  \argitem{A}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $M\times N$ matrix.}
+  \argitem{w}{complex(8) or real(8), dimension(:), contiguous, intent(inout)}{Pre-allocated output vector of length $N = \texttt{size(A,2)}$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(4,6), v2(4), v4(6)
+real   (8) :: d1(4,6), u2(4), u4(6)
+
+call random_number(m1); call random_number(v2)
+call random_number(d1); call random_number(u2)
+
+call vmmult(v2, m1, v4)   ! v4_i = sum_j v2_j m1_ji
+call vmmult(u2, d1, u4)   ! u4_i = sum_j u2_j d1_ji
+\end{lstlisting}

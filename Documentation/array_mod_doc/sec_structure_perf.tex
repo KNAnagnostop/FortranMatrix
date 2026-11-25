@@ -1,0 +1,221 @@
+% ===================================================================
+% Section 3: File Structure
+% ===================================================================
+\section{File Structure}
+\label{sec:file_structure}
+
+The top-level module \modname{array\_mod} is defined in the file \filename{array\_mod.f90}. It serves as a clean public facade over the internal implementation modules \modname{matrix\_mod\_array}, \modname{matrix\_mod\_common}, \modname{tensorprod\_mod}, and \modname{timer\_mod}, using \lcodef{private} by default and explicitly exporting only the documented public generic interfaces and variables.
+
+The source files in \filename{Software/Tools/Matrix/} that comprise \modname{array\_mod} and \filename{libMatrix.a} are organized as follows:
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+array_mod.f90                ! Top-level module exporting public interfaces
+matrix_mod_array.f90         ! Generic interfaces and core array procedures
+matrix_mod_array_lapack.f90  ! Included in matrix_mod_array.f90: BLAS/LAPACK/PFAPACK routines
+matrix_mod_common.f90        ! Common constants (dp, PI, ONE, ZERO, IMU), f_mout, NaN, isNaN
+tensorprod_mod.f90           ! Kronecker products (tensorprod, vec2col, vec2row, vectorize)
+timer_mod.f90                ! CPU and wall-clock timing utilities (timer_mod_init, etc.)
+pfapack/fortran/             ! PFAPACK library source code (f95_pfapack, skpfa, skpf10)
+\end{lstlisting}
+
+If desired, one can \lcodef{use matrix_mod_array} directly, in which case all internal module procedures (such as \texttt{array2\_zgeev}, \texttt{array2\_pfaffian}, and the raw \texttt{BLAS}/\texttt{LAPACK} interface blocks) are also public. Similarly, \lcodef{use f95_pfapack} provides direct access to all \texttt{PFAPACK} routines.
+
+The library is built using the provided \filename{Makefile}:
+\lstset{language=bash}
+\begin{lstlisting}
+make gnu   ! Compiles PFAPACK, builds *.mod and *.o with gfortran, creates libMatrix.a in ./ and lib/gnu/
+make intel ! Compiles PFAPACK, builds *.mod and *.o with ifx/MKL, creates libMatrix.a in ./ and lib/intel/
+make mods  ! Compiles the Fortran modules and produces object files
+make lib   ! Archives object files into libMatrix.a
+make FC=ifort FFLAGS='-O3 -heap-arrays -xHOST -parallel' LIBS='-mkl=parallel' lib
+\end{lstlisting}
+
+The remaining source files in the directory (\filename{matrix\_mod\_matrix*.f90}) implement the object-oriented derived-type \modname{matrix\_mod\_matrix} module, which is intended primarily for educational use rather than high-performance computing.
+
+% ===================================================================
+% Section 4: Performance
+% ===================================================================
+\section{Performance}
+\label{sec:performance}
+
+A comprehensive series of benchmarks for matrix--matrix and matrix--vector multiplication was performed on a desktop workstation\footnote{Desktop configuration: Intel(R) Core(TM) i7-4790 CPU @ 3.60\,GHz with Intel \texttt{ifort} Version 19.1.1.217 Build 20200306, compiled with \texttt{-O3 -heap-arrays -xHost -parallel -mkl=parallel}, \texttt{nthreads=8} (4 physical cores).} and on the ARIS national supercomputer.\footnote{Supercomputer configuration (ARIS): Intel Xeon E5-2680v2, Intel \texttt{ifort} Version 19.0.1.144 Build 20181018, compiled with \texttt{-O3 -heap-arrays -xCORE-AVX-I -parallel -mkl=parallel}, \texttt{nthreads=20}.}
+
+\begin{notebox}[Summary of Performance Findings]
+\begin{itemize}
+  \item \textbf{Matrix--Matrix Multiplication}: Calling \texttt{BLAS} \texttt{zgemm} via \modname{array\_mod} is always faster than the Fortran intrinsic \texttt{MATMUL}, especially for small and medium matrices ($N \le 250$).
+  \begin{itemize}
+    \item The subroutine \procname{mmmult} is just as fast as direct Fortran~77 calls to \texttt{zgemm} on statically allocated arrays.
+    \item The function \procname{lmatmul(m1, m2)} incurs a negligible overhead compared to \procname{mmmult}.
+    \item The overloaded operator \procname{.mm.} has a noticeable temporary-array overhead for $N \le 250$ and a small overhead for larger $N$.
+    \item Computing $A A^\dagger$ or $A^\dagger A$ via \procname{lmatmul(m1)} or \procname{mmmult(m1, m4)} (which calls \texttt{zherk}) yields a substantial $\sim 35\%$--$40\%$ speedup for large matrices ($N \ge 1000$). By contrast, using \texttt{zhemm} (\texttt{mtype='ZH'}) instead of \texttt{zgemm} for general $A B$ with Hermitian $A$ shows no significant gain.
+    \item Power-of-two matrix sizes ($N = 32, 64, 128, 256, 512, 1024$) were also benchmarked against nearby non-power-of-two sizes ($N = 30, 60, 120, 250, 500, 1000$) to test for cache-associativity conflicts with Intel MKL (Table~\ref{tab:b4}); only minor variations were observed.
+  \end{itemize}
+  \item \textbf{Matrix--Vector Multiplication}: Avoid the intrinsic \texttt{MATMUL} for $N \le 200$ (where \texttt{BLAS} is up to $2\times$--$3\times$ faster); for larger $N$, intrinsic \texttt{MATMUL} pays only a small penalty. Between \procname{lmatmul}, \procname{mvmult}, and \procname{vmmult}, performance on the desktop is nearly identical, whereas on the 20-thread Xeon supercomputer node (Table~\ref{tab:b7}), left vector--matrix multiplication \procname{vmmult} (\texttt{zgemv('T',...)}) is up to $2\times$--$3\times$ faster than \procname{mvmult} (\texttt{zgemv('N',...)}) due to contiguous column-major dot-product access and more efficient multi-threaded vectorization.
+\end{itemize}
+\end{notebox}
+
+% -------------------------------------------------------------------
+% Table B.2: Legend for Matrix-Matrix Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{c l}
+\toprule
+\textbf{Column} & \textbf{Matrix--Matrix Multiplication Method} \\
+\midrule
+\texttt{(5)}  & Direct calls to \texttt{zgemm} for statically allocated arrays \\
+\texttt{(11)} & Calls to the subroutine \lcodef{call mmmult(m1, m2, m3)} \\
+\texttt{(4)}  & Calls to the function \lcodef{m3 = lmatmul(m1, m2)} \\
+\texttt{(3)}  & Calls to the Fortran intrinsic \lcodef{m3 = MATMUL(m1, m2)} \\
+\texttt{(6)}  & Operator overloading: \lcodef{m3 = (m1 .mm. m2)} \\
+\texttt{(9)}  & Computation of $m_1^\dagger m_1$ via \lcodef{lmatmul(m1, side='H')} (\texttt{zherk}) \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b2}Legend of the methods used for benchmarking $N\times N$ complex matrix--matrix multiplication in Tables~\ref{tab:b1}, \ref{tab:b3}, and \ref{tab:b4}.}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.1: Desktop Matrix-Matrix Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{r c c c c c c}
+\toprule
+$N$ & \texttt{(5) zgemm} & \texttt{(11) mmmult} & \texttt{(4) lmatmul} & \texttt{(3) MATMUL} & \texttt{(6) .mm.} & \texttt{(9) zherk} \\
+\midrule
+30   & \texttt{3.09e-06} & \texttt{3.46e-06} & \texttt{3.52e-06} & \texttt{6.56e-06} & \texttt{4.40e-06} & \texttt{4.34e-06} \\
+60   & \texttt{1.30e-05} & \texttt{1.36e-05} & \texttt{1.37e-05} & \texttt{2.48e-05} & \texttt{1.74e-05} & \texttt{1.43e-05} \\
+120  & \texttt{7.71e-05} & \texttt{8.02e-05} & \texttt{8.00e-05} & \texttt{1.57e-04} & \texttt{9.66e-05} & \texttt{7.29e-05} \\
+190  & \texttt{2.86e-04} & \texttt{2.91e-04} & \texttt{3.04e-04} & \texttt{5.47e-04} & \texttt{3.26e-04} & \texttt{2.44e-04} \\
+250  & \texttt{6.47e-04} & \texttt{6.58e-04} & \texttt{6.69e-04} & \texttt{7.13e-04} & \texttt{7.20e-04} & \texttt{5.11e-04} \\
+500  & \texttt{5.33e-03} & \texttt{5.33e-03} & \texttt{5.35e-03} & \texttt{5.54e-03} & \texttt{5.91e-03} & \texttt{3.71e-03} \\
+750  & ---               & \texttt{1.72e-02} & \texttt{1.73e-02} & \texttt{1.82e-02} & \texttt{1.92e-02} & \texttt{1.18e-02} \\
+1000 & \texttt{4.12e-02} & \texttt{4.05e-02} & \texttt{4.08e-02} & \texttt{4.27e-02} & \texttt{4.23e-02} & \texttt{2.63e-02} \\
+2000 & \texttt{3.08e-01} & \texttt{3.07e-01} & \texttt{3.38e-01} & \texttt{3.49e-01} & \texttt{3.15e-01} & \texttt{1.94e-01} \\
+4000 & \texttt{2.51e+00} & \texttt{2.44e+00} & \texttt{2.47e+00} & \texttt{2.41e+00} & \texttt{2.51e+00} & \texttt{1.48e+00} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b1}Time per complex matrix--matrix multiplication in seconds on the desktop workstation (Intel Core i7-4790, \texttt{array\_benchmark\_v01.dat}). Column definitions are given in Table~\ref{tab:b2}.}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.3: Supercomputer Matrix-Matrix Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{r c c c c c c}
+\toprule
+$N$ & \texttt{(5) zgemm} & \texttt{(11) mmmult} & \texttt{(4) lmatmul} & \texttt{(3) MATMUL} & \texttt{(6) .mm.} & \texttt{(9) zherk} \\
+\midrule
+30   & \texttt{1.37e-05} & \texttt{1.47e-05} & \texttt{4.75e-05} & \texttt{3.25e-05} & \texttt{1.58e-05} & \texttt{3.02e-05} \\
+60   & \texttt{2.35e-05} & \texttt{2.26e-05} & \texttt{2.29e-05} & \texttt{2.57e-05} & \texttt{3.27e-05} & \texttt{1.18e-04} \\
+120  & \texttt{6.72e-05} & \texttt{6.48e-05} & \texttt{6.72e-05} & \texttt{1.10e-04} & \texttt{9.93e-05} & \texttt{6.78e-04} \\
+190  & \texttt{2.29e-04} & \texttt{2.30e-04} & \texttt{2.29e-04} & \texttt{3.41e-04} & \texttt{3.22e-04} & \texttt{3.29e-04} \\
+250  & \texttt{4.36e-04} & \texttt{4.37e-04} & \texttt{4.36e-04} & \texttt{5.47e-04} & \texttt{5.85e-04} & \texttt{6.67e-04} \\
+500  & \texttt{2.69e-03} & \texttt{2.69e-03} & \texttt{2.69e-03} & \texttt{3.18e-03} & \texttt{3.36e-03} & \texttt{2.87e-03} \\
+750  & ---               & \texttt{9.48e-03} & \texttt{9.38e-03} & \texttt{1.05e-02} & \texttt{1.13e-02} & \texttt{8.69e-03} \\
+1000 & \texttt{2.21e-02} & \texttt{2.29e-02} & \texttt{2.17e-02} & \texttt{2.42e-02} & \texttt{2.56e-02} & \texttt{1.73e-02} \\
+2000 & \texttt{1.71e-01} & \texttt{1.71e-01} & \texttt{1.69e-01} & \texttt{1.79e-01} & \texttt{1.84e-01} & \texttt{1.11e-01} \\
+4000 & \texttt{1.28e+00} & \texttt{1.28e+00} & \texttt{1.28e+00} & \texttt{1.30e+00} & \texttt{1.34e+00} & \texttt{7.55e-01} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b3}Time per complex matrix--matrix multiplication in seconds on the ARIS supercomputer (20 threads, Intel Xeon E5-2680v2, \texttt{array\_benchmark\_v01\_aris.dat}).}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.4: Power-of-2 Matrix-Matrix Benchmarks on Supercomputer
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{r c c c c c c}
+\toprule
+$N$ & \texttt{(5) zgemm} & \texttt{(11) mmmult} & \texttt{(4) lmatmul} & \texttt{(3) MATMUL} & \texttt{(6) .mm.} & \texttt{(9) zherk} \\
+\midrule
+30   & \texttt{1.32e-05} & \texttt{1.26e-05} & \texttt{1.35e-05} & \texttt{1.39e-05} & \texttt{1.54e-05} & \texttt{2.97e-05} \\
+32   & ---               & \texttt{1.28e-05} & \texttt{1.26e-05} & \texttt{1.34e-05} & \texttt{1.56e-05} & \texttt{3.14e-05} \\
+60   & \texttt{2.13e-05} & \texttt{2.16e-05} & \texttt{1.92e-05} & \texttt{2.55e-05} & \texttt{3.04e-05} & \texttt{1.18e-04} \\
+64   & ---               & \texttt{2.19e-05} & \texttt{2.08e-05} & \texttt{3.34e-05} & \texttt{3.40e-05} & \texttt{1.34e-04} \\
+120  & \texttt{6.27e-05} & \texttt{6.38e-05} & \texttt{5.88e-05} & \texttt{1.08e-04} & \texttt{9.69e-05} & \texttt{6.66e-04} \\
+128  & ---               & \texttt{7.65e-05} & \texttt{4.50e-03} & \texttt{1.36e-04} & \texttt{1.23e-04} & \texttt{8.02e-04} \\
+250  & \texttt{4.29e-04} & \texttt{4.27e-04} & \texttt{4.37e-04} & \texttt{5.42e-04} & \texttt{5.81e-04} & \texttt{6.68e-04} \\
+256  & ---               & \texttt{4.85e-04} & \texttt{4.96e-04} & \texttt{6.71e-04} & \texttt{6.38e-04} & \texttt{6.48e-04} \\
+500  & \texttt{2.67e-03} & \texttt{2.71e-03} & \texttt{2.67e-03} & \texttt{3.07e-03} & \texttt{3.35e-03} & \texttt{2.75e-03} \\
+512  & ---               & \texttt{3.08e-03} & \texttt{3.11e-03} & \texttt{3.55e-03} & \texttt{3.78e-03} & \texttt{3.01e-03} \\
+1000 & \texttt{2.18e-02} & \texttt{2.22e-02} & \texttt{2.22e-02} & \texttt{2.38e-02} & \texttt{2.51e-02} & \texttt{1.71e-02} \\
+1024 & ---               & \texttt{2.40e-02} & \texttt{2.38e-02} & \texttt{2.58e-02} & \texttt{2.76e-02} & \texttt{1.90e-02} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b4}Comparison of matrix--matrix multiplication times (in seconds) on the ARIS supercomputer for matrix sizes $N$ that are powers of 2 versus nearby non-powers of 2 (\texttt{array\_benchmark\_v02*.dat}).}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.6: Legend for Matrix-Vector Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{c l}
+\toprule
+\textbf{Column} & \textbf{Matrix--Vector Multiplication Method} \\
+\midrule
+\texttt{(3)} & Call to the Fortran intrinsic \lcodef{v3 = MATMUL(m1, v2)} \\
+\texttt{(4)} & Call to the function \lcodef{v3 = lmatmul(m1, v2)} \\
+\texttt{(5)} & Call to the subroutine \lcodef{call mvmult(m1, v2, v3)} \\
+\texttt{(6)} & Call to the subroutine \lcodef{call vmmult(v1, m1, v3)} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b6}Legend of the methods used for benchmarking complex matrix--vector multiplication in Table~\ref{tab:b5} (sub-tables B.5 and B.7).}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.5 & B.7: Desktop and Supercomputer Matrix-Vector Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r c c c c @{\hspace{1.2em}} c c c c}
+\toprule
+ & \multicolumn{4}{c}{\textbf{Table B.5: Desktop (Core i7-4790)}} & \multicolumn{4}{c}{\textbf{Table B.7: Supercomputer (Xeon E5-2680v2)}} \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9}
+$N$ & \texttt{(3) MATMUL} & \texttt{(4) lmatmul} & \texttt{(5) mvmult} & \texttt{(6) vmmult} & \texttt{(3) MATMUL} & \texttt{(4) lmatmul} & \texttt{(5) mvmult} & \texttt{(6) vmmult} \\
+\midrule
+30    & \texttt{8.15e-07} & \texttt{7.41e-07} & \texttt{6.71e-07} & \texttt{6.66e-07} & \texttt{8.72e-07} & \texttt{1.08e-06} & \texttt{9.20e-07} & \texttt{9.00e-07} \\
+60    & \texttt{2.68e-06} & \texttt{2.06e-06} & \texttt{1.95e-06} & \texttt{1.84e-06} & \texttt{3.26e-06} & \texttt{3.33e-06} & \texttt{3.19e-06} & \texttt{3.00e-06} \\
+120   & \texttt{9.65e-06} & \texttt{5.18e-06} & \texttt{4.87e-06} & \texttt{3.34e-06} & \texttt{1.27e-05} & \texttt{1.09e-05} & \texttt{9.67e-06} & \texttt{8.09e-06} \\
+190   & \texttt{2.28e-05} & \texttt{1.08e-05} & \texttt{1.04e-05} & \texttt{6.36e-06} & \texttt{3.25e-05} & \texttt{1.22e-05} & \texttt{1.09e-05} & \texttt{7.86e-06} \\
+250   & \texttt{1.82e-05} & \texttt{1.67e-05} & \texttt{1.64e-05} & \texttt{9.16e-06} & \texttt{3.38e-05} & \texttt{2.88e-05} & \texttt{2.94e-05} & \texttt{1.03e-05} \\
+500   & \texttt{4.92e-05} & \texttt{4.21e-05} & \texttt{4.11e-05} & \texttt{2.91e-05} & \texttt{5.64e-05} & \texttt{6.35e-05} & \texttt{6.10e-05} & \texttt{1.69e-05} \\
+750   & \texttt{1.63e-04} & \texttt{1.46e-04} & \texttt{1.44e-04} & \texttt{1.34e-04} & \texttt{1.27e-04} & \texttt{1.18e-04} & \texttt{1.13e-04} & \texttt{3.30e-05} \\
+1000  & \texttt{5.91e-04} & \texttt{6.09e-04} & \texttt{6.97e-04} & \texttt{5.12e-04} & \texttt{1.29e-04} & \texttt{1.50e-04} & \texttt{1.61e-04} & \texttt{4.63e-05} \\
+2000  & \texttt{3.13e-03} & \texttt{2.87e-03} & \texttt{2.90e-03} & \texttt{2.84e-03} & \texttt{9.80e-04} & \texttt{1.25e-03} & \texttt{1.25e-03} & \texttt{4.16e-04} \\
+4000  & \texttt{1.19e-02} & \texttt{1.16e-02} & \texttt{1.14e-02} & \texttt{1.14e-02} & \texttt{5.58e-03} & \texttt{5.66e-03} & \texttt{5.60e-03} & \texttt{2.55e-03} \\
+8000  & \texttt{4.79e-02} & \texttt{4.60e-02} & \texttt{4.66e-02} & \texttt{4.51e-02} & \texttt{2.27e-02} & \texttt{2.25e-02} & \texttt{2.27e-02} & \texttt{1.11e-02} \\
+16000 & \texttt{1.96e-01} & \texttt{1.89e-01} & \texttt{1.88e-01} & \texttt{1.80e-01} & \texttt{8.43e-02} & \texttt{8.33e-02} & \texttt{8.46e-02} & \texttt{4.21e-02} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:b5}\label{tab:b7}Time per complex matrix--vector multiplication in seconds on the desktop workstation (left, Table~B.5) and on the ARIS supercomputer (right, Table~B.7). Column definitions are given in Table~\ref{tab:b6}.}
+\end{table}
+
+% ===================================================================
+% References
+% ===================================================================
+\begin{thebibliography}{9}
+
+\bibitem{Wimmer_2012}
+M.~Wimmer,
+\emph{Algorithm 923: Efficient Numerical Computation of the Pfaffian for Dense and Banded Skew-Symmetric Matrices},
+ACM Transactions on Mathematical Software (TOMS) \textbf{38} (2012) 30,
+\href{https://arxiv.org/abs/1102.3440}{arXiv:1102.3440 [cond-mat.mes-hall]}.
+
+\bibitem{pfapack}
+M.~Wimmer,
+\emph{PFAPACK: A library for computing the Pfaffian of skew-symmetric matrices},
+\url{https://www.michaelwimmer.org/downloads.html}.
+
+\bibitem{Catterall_2003}
+S.~Catterall,
+\emph{ Lattice Supersymmetry and Topological Field Theory},
+JHEP \textbf{05} (2003) 038 / Phys.\ Rev.\ D \textbf{68}, 014503 (2003),
+\href{https://doi.org/10.1103/PhysRevD.68.014503}{doi:10.1103/PhysRevD.68.014503}.
+
+\end{thebibliography}

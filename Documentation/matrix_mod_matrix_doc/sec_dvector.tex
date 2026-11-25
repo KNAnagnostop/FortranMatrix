@@ -1,0 +1,511 @@
+% ===================================================================
+% Section 5: Class DVector
+% ===================================================================
+\section{Class \texttt{DVector}}
+\label{sec:class_dvector}
+
+The \typename{DVector} derived type provides a structured interface for one-dimensional double-precision real (\typename{real(8)} / \typename{real(real64)}) vectors with custom index bounds and an optional label.
+
+% -------------------------------------------------------------------
+\subsection{Components}
+\label{subsec:dvec_components}
+
+% ===================================================================
+% type(DVector)
+% ===================================================================
+\manentry{Derived Type}{type(DVector)}{DVector (type)}{Double-precision real 1D vector class with index bounds and label metadata}{dvec:type}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+type(DVector) :: vec
+! Components: vec % n, vec % is, vec % ie, vec % name, vec % v(is:ie)
+\end{lstlisting}
+
+\manheading{Brief}
+Encapsulates a 1D allocatable \typename{real(8)} array \texttt{v(is:ie)} of length \texttt{n} along with bounds and label metadata.
+
+\manheading{Description}
+Before initialization, \texttt{vec \% n = vec \% is = vec \% ie = 0} and \texttt{vec \% v} is unallocated. After construction, valid indices run from \texttt{is} to \texttt{ie = is + n - 1}.
+
+\manheading{Data Components}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, default 0}{Length of the vector (\texttt{n == 0} means uninitialized).}
+  \argitem{is, ie}{integer, default 0}{Lower and upper index bounds satisfying \texttt{ie = is + n - 1}.}
+  \argitem{name}{character(20), default \texttt{''}}{User label (\texttt{name\_len = 20}) displayed by \procname{\% print}.}
+  \argitem{v(:)}{real(8), allocatable}{Allocated 1D real array \texttt{v(is:ie)}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u
+
+u = DVector(6, is=-2, name='coords')
+print *, u % n, u % is, u % ie    ! 6, -2, 3
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Constructors}
+\label{subsec:dvec_constructors}
+
+% ===================================================================
+% DVector(...) constructor
+% ===================================================================
+\manentry{Generic Constructor}{DVector(...)}{DVector (constructor)}{Constructs and allocates a \texttt{type(DVector)} (zero, constant, random, or from 1D real array)}{dvec:constructor}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u = DVector(n,      [is], [name])                ! pure: zero vector
+u = DVector(n, r,   [is], [name])                ! pure: filled with real r
+u = DVector(n, z,   [is], [name])                ! pure: filled with Re(z)
+u = DVector(a,      [is], [name])                ! pure: copied from real a(:)
+u = DVector(rtype, n, [is], [name], [sigma])     ! uniform or Gaussian random
+\end{lstlisting}
+
+\manheading{Brief}
+Allocates a \typename{type(DVector)} of length \argname{n} (or \texttt{size(a)}), configures \texttt{is:ie} and \texttt{name}, and initializes \texttt{u \% v}.
+
+\manheading{Description}
+\begin{enumerate}
+  \item \textbf{\texttt{DVector(n, [is], [name])}} (\texttt{pure}): Allocates \texttt{v(is:is+n-1)} filled with \texttt{0.0\_8} (defaults \texttt{is = 1}, \texttt{name = ''}).
+  \item \textbf{\texttt{DVector(n, r, [is], [name])}} and \textbf{\texttt{DVector(n, z, [is], [name])}} (\texttt{pure}): Allocate a length-\argname{n} vector filled with \argname{r} or \texttt{REAL(z, kind=8)}.
+  \item \textbf{\texttt{DVector(a, [is], [name])}} (\texttt{pure}): Copies a 1D \typename{real(8)} array \argname{a(:)} (pass \texttt{is = lbound(a,1)} to keep custom lower bounds).
+  \item \textbf{\texttt{DVector(rtype, n, [is], [name], [sigma])}}: \texttt{'r'}/\texttt{'R'}/\texttt{'u'}/\texttt{'U'} fills with uniform $[0,1)$ numbers; \texttt{'g'}/\texttt{'G'} fills with Gaussian variates of standard deviation \argname{sigma} (default \texttt{1.0\_8}). Passing an empty string or any other leading character calls \texttt{matrix\_error}.
+\end{enumerate}
+
+\begin{warnbox}[Size-First Argument Order]
+As with \typename{Vector}, the constant-value constructors take \argname{n} \emph{before} the scalar (\lcodef{DVector(n, r)} and \lcodef{DVector(n, z)}), opposite to \typename{DMatrix}.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{n}{integer, intent(in)}{Number of vector elements.}
+  \argitem{r / z}{real(8) / complex(8), intent(in)}{Scalar fill value (\texttt{REAL(z, kind=8)} if complex), passed \emph{after} \argname{n}.}
+  \argitem{a}{real(8), dimension(:), intent(in)}{Source 1D real array for \texttt{DVector(a, ...)}.}
+  \argitem{is}{integer, optional, intent(in)}{Lower index bound (defaults to \texttt{1}).}
+  \argitem{name}{character(*), optional, intent(in)}{Optional vector label (up to 20 characters).}
+  \argitem{rtype}{character(*), intent(in)}{Generator type: \texttt{'uniform'}/\texttt{'random'} or \texttt{'gaussian'}.}
+  \argitem{sigma}{real(8), optional, intent(in)}{Gaussian standard deviation (defaults to \texttt{1.0\_8}).}
+  \argitem{vec}{type(DVector), return value}{Allocated \typename{DVector}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+real(8)       :: a(0:3) = [1.0_8, 2.0_8, 3.0_8, 4.0_8]
+type(DVector) :: u0, u1, u2, u3
+
+u0 = DVector(4)
+u1 = DVector(4, 3.14_8, name='pi')
+u2 = DVector('gaussian', 8, sigma=0.5_8)
+u3 = DVector(a, is=lbound(a,1))
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Component Procedures}
+\label{subsec:dvec_comp_procs}
+
+\typename{type(DVector)} defines five type-bound generic procedures: \procname{save}, \procname{read}, \procname{print}, \procname{random}, and \procname{gaussian}.
+
+% ===================================================================
+% DVEC % save, read, print
+% ===================================================================
+\manentry{Type-Bound Subroutines}{DVEC \% save, DVEC \% read, DVEC \% print}{DVector \% save, DVector \% read, DVector \% print}{Sequential I/O and formatted display for \texttt{DVector}}{dvec:io}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector \% read}}}{DVector \% read}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector \% print}}}{DVector \% print}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vec % save ([unit], [fmt])
+call vec % read ([unit])
+call vec % print([unit], [fmt], [form], [name], [ips], [ipe])
+\end{lstlisting}
+
+\manheading{Brief}
+Write raw real values (\procname{\% save}), read raw real values (\procname{\% read}), or print formatted values, metadata summaries, or Mathematica lists (\procname{\% print}) for a \typename{DVector}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{vec \% save}: Writes one \typename{real(8)} number per line using \texttt{'('//fmt//')'} (defaults: \texttt{unit = f\_mout}, \texttt{fmt = 'G28.17'}). Returns silently if unallocated.
+  \item \procname{vec \% read}: Reads real scalars from \argname{unit} (default internal \texttt{f\_minput = stdin}) into pre-allocated \texttt{vec \% v(is:ie)}. Returns silently if unallocated.
+  \item \procname{vec \% print}: Supports \texttt{form = 'Default'}, \texttt{'Info'}, and \texttt{'Mathematica'} (emitting \texttt{<name> = \{...\};}), optional slice bounds \argname{ips:ipe}, and optional header \argname{name}. Aborts via \texttt{matrix\_error} if uninitialized (\texttt{n == 0}), unallocated, or given an unrecognized \argname{form}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(DVector), intent(in) / intent(inout)}{Target real vector.}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran I/O unit.}
+  \argitem{fmt}{character(*), optional, intent(in)}{Numeric format descriptor (defaults to \texttt{'G28.17'}).}
+  \argitem{form}{character(*), optional, intent(in)}{\texttt{'Default'}, \texttt{'Info'}, or \texttt{'Mathematica'} (for \procname{\% print}).}
+  \argitem{name}{character(*), optional, intent(in)}{Label override for \procname{\% print}.}
+  \argitem{ips, ipe}{integer, optional, intent(in)}{Optional index slice for \procname{\% print}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1
+
+u1 = DVector('uniform', 12, name='x')
+call u1 % print(ips=1, ipe=5, fmt='F8.4')
+call u1 % print(form='Mathematica')
+\end{lstlisting}
+
+% ===================================================================
+% DVEC % random and DVEC % gaussian
+% ===================================================================
+\manentry{Type-Bound Subroutines}{DVEC \% random, DVEC \% gaussian}{DVector \% random, DVector \% gaussian}{Fill a pre-allocated \texttt{DVector} with uniform or Gaussian real random numbers}{dvec:rand_gauss}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector \% gaussian}}}{DVector \% gaussian}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call vec % random()
+call vec % gaussian([sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Populate an allocated \typename{DVector} with uniform $[0,1)$ or zero-mean Gaussian random variates (default \texttt{sigma = 1.0\_8}).
+
+\manheading{Description}
+Call \cbox{call random\_number(vec \% v)} and \cbox{call random\_number(vec \% v, sigma=s)}, returning silently if \texttt{vec \% v} is not allocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(DVector), intent(inout)}{Pre-allocated real vector.}
+  \argitem{sigma}{real(8), optional}{Gaussian standard deviation (defaults to \texttt{1.0\_8}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u
+
+u = DVector(8)
+call u % random()
+call u % gaussian(sigma=2.0_8)
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Operators}
+\label{subsec:dvec_operators}
+
+\mansubgroup{Assignment}
+
+% ===================================================================
+% assignment(=) DVector
+% ===================================================================
+\manentry{Overloaded Operator}{assignment(=) (DVector)}{DVector: assignment(=)}{Assigns a \texttt{DVector}, \texttt{Vector}, 1D array, or scalar to a \texttt{DVector}}{dvec:op_assign}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u1 = u2    ! type(DVector)        -> intrinsic copy (metadata + values)
+u1 = v1    ! type(Vector)         -> assigns Re(v1); aborts on size mismatch
+u1 = b     ! real(8)    :: b(:)   -> copies array b(:) into u1 % v
+u1 = a     ! complex(8) :: a(:)   -> copies Re(a(:)) into u1 % v
+u1 = r     ! real(8)    :: r      -> fills pre-allocated u1 % v = r
+u1 = z     ! complex(8) :: z      -> fills pre-allocated u1 % v = Re(z)
+\end{lstlisting}
+
+\manheading{Brief}
+Overloads \texttt{=} for assigning real or complex vectors, 1D arrays, or scalars to a \typename{DVector}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \texttt{u1 = u2}: Intrinsic derived-type copy of all metadata and values.
+  \item \texttt{u1 = v1}, \texttt{u1 = b}, \texttt{u1 = a}: If \texttt{u1 \% n == 0}, copies metadata (from \argname{v1} or defaults \texttt{is = 1..size}) and values (taking the real part of complex sources). If \argname{u1} is already constructed, preserves \texttt{is, ie, name}; on a size mismatch the program stops with an \texttt{error stop} message naming the procedure (exit status 1).
+  \item \texttt{u1 = r} and \texttt{u1 = z}: Require \texttt{u1 \% v} to be allocated (aborting with Fortran \texttt{error stop} if unallocated), filling \texttt{u1 \% v = r} or \texttt{REAL(z, kind=8)}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vecb}{type(DVector), intent(inout)}{Destination real vector.}
+  \argitem{rhs}{type(DVector), type(Vector), real(8)(:), complex(8)(:), real(8), or complex(8), intent(in)}{Source operand.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1
+real(8)       :: b(4) = [1.0_8, 2.0_8, 3.0_8, 4.0_8]
+
+u1 = DVector(4, is=0, name='Grid')
+u1 = b               ! preserves is=0, name='Grid'
+u1 = 0.0_8           ! OK because u1 is constructed
+\end{lstlisting}
+
+\mansubgroup{Addition, Subtraction, Scalar Multiplication, Division, and Power}
+
+% ===================================================================
+% operator(+), operator(-), *, /, ** (DVector)
+% ===================================================================
+\manentry{Overloaded Operators}{operator(+), operator(-), operator(*), operator(/), operator(**) (DVector)}{DVector: +, -, scalar *, /, **}{Real arithmetic and element-wise power operators for \texttt{DVector}}{dvec:op_arith}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: operator(+)}}}{DVector: operator(+)}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: operator(-)}}}{DVector: operator(-)}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: operator(/), operator(**)}}}{DVector: operator(/), operator(**)}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u3 = u1 + u2;   u3 = u1 - u2;   u3 = -u1      ! DVector +/- DVector, unary -
+u3 = u1 + b;    u3 = b  + u1;   u3 = u1 - b   ! real(8)(:) array (also b - u1)
+u3 = u1 + r;    u3 = r  + u1;   u3 = u1 - r   ! real(8) scalar   (also r - u1)
+u2 = r  * u1;   u2 = u1 * r;    u2 = u1 / r   ! real(8) scalar * and /
+u2 = u1 ** k;   u2 = u1 ** x                  ! integer k or real(8) x power
+\end{lstlisting}
+
+\manheading{Brief}
+Perform \texttt{pure} element-wise real vector arithmetic and element-wise exponentiation, preserving metadata from the \typename{DVector} operand.
+
+\manheading{Description}
+All unary and binary \procname{+}, \procname{-}, scalar \procname{*}, \procname{/}, and \procname{**} operations on \typename{DVector} are \texttt{pure} functions returning a \typename{type(DVector)}. A length mismatch in array/vector \procname{+} or \procname{-} stops the program with an \texttt{error stop} message naming the procedure.
+
+\begin{notebox}[No Complex-Scalar Overloads on \texttt{DVector}]
+Despite appearing in older draft notes, \filename{matrix\_mod\_matrix.f90} does \emph{not} overload \procname{+}, \procname{-}, \procname{*}, \procname{/}, or \procname{**} between a \typename{DVector} and a \typename{complex(8)} scalar or exponent. To combine a \typename{DVector} with complex scalars, promote it to \typename{Vector} first (e.g.\ \lcodef{v = u1; v2 = z * v}).
+\end{notebox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{class(DVector), real(8)(:), real(8), or integer, intent(in)}{Real vector, real array, real scalar, or integer/real exponent.}
+  \argitem{result}{type(DVector), return value}{Allocated real result vector.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1, u2, u3
+
+u1 = DVector('uniform', 6) + 1.0_8
+u2 = 2.0_8 * u1 / 3.0_8
+u3 = -u1 + (u2 ** 0.5_8)
+\end{lstlisting}
+
+\mansubgroup{Matrix--Vector Multiplication}
+
+% ===================================================================
+% DMatrix * DVector, mvmult, vmmult
+% ===================================================================
+\manentry{Overloaded Operator / BLAS Subroutines}{operator(*), mvmult, vmmult (DMatrix--DVector)}{DVector: * and mvmult, vmmult}{Matrix--vector multiplication via \texttt{*} or zero-allocation \texttt{BLAS} subroutines}{dvec:matvec}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: mvmult}}}{DVector: mvmult}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: vmmult}}}{DVector: vmmult}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u2 = d1 * u1             ! u2 % v(d1%is:d1%ie), u2 % name = u1 % name
+u2 = u1 * d1             ! u2 % v(d1%js:d1%je), u2 % name = u1 % name
+call mvmult(d1, u1, u2)  ! pure: zero-alloc u2 % v = d1 % v . u1 % v
+call vmmult(u1, d1, u2)  ! pure: zero-alloc u2 % v = transpose(d1%v) . u1%v
+\end{lstlisting}
+
+\manheading{Brief}
+Multiply a \typename{DMatrix} \argname{d1} and a \typename{DVector} \argname{u1} using \texttt{BLAS} \texttt{dgemv} via either operator notation (\procname{*}) or zero-overhead subroutines (\procname{mvmult}, \procname{vmmult}).
+
+\manheading{Description}
+Operator \procname{*} allocates \argname{u2} with bounds taken from \argname{d1} (\texttt{is:ie} for \texttt{d1 * u1}, \texttt{js:je} for \texttt{u1 * d1}), copies \texttt{u1 \% name}, and aborts via \texttt{matrix\_error} on a dimension mismatch. The \texttt{pure} subroutines \procname{mvmult} and \procname{vmmult} automatically construct or resize \argname{u2} whenever \texttt{u2 \% v} is unallocated or its length mismatches (\texttt{u2 \% n /= d1 \% m} for \procname{mvmult}, \texttt{u2 \% n /= d1 \% n} for \procname{vmmult}); when \argname{u2} is already allocated with matching length, they write in-place preserving its existing bounds and \texttt{name}. Note that \procname{mvmult} forwards \texttt{type = 'S'} (\texttt{dsymv}) when \texttt{d1 \% mtype = 'DS'}, whereas \procname{vmmult} calls \modname{matrix\_mod\_array}'s \texttt{vmmult(u1 \% v, d1 \% v, u2 \% v)} without a \texttt{type} argument; inner-dimension mismatches stop the program with an \texttt{error stop} message.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Real matrix operand.}
+  \argitem{vecb}{class(DVector), intent(in)}{Real input vector.}
+  \argitem{vecc}{type(DVector), return value / intent(inout)}{Output real vector (auto-allocated/resized if needed for \procname{mvmult}/\procname{vmmult}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+type(DVector) :: u1, u2
+
+d1 = DMatrix('gaussian', 8)
+u1 = DVector('gaussian', 8)
+u2 = d1 * u1
+call vmmult(u1, d1, u2)   ! overwrite u2 in-place without temporary allocation
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Procedures}
+\label{subsec:dvec_procs}
+
+\mansubgroup{Random Numbers}
+
+% ===================================================================
+% random_number (DVector)
+% ===================================================================
+\manentry{Generic Subroutine}{random\_number (DVector)}{DVector: random\textunderscore number}{Overloaded uniform and Gaussian random generator for \texttt{DVector}}{dvec:random_number}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call random_number(vec)          ! uniform random numbers in [0,1)
+call random_number(vec, sigma)   ! Gaussian random numbers with std dev sigma
+\end{lstlisting}
+
+\manheading{Brief}
+Fills a pre-allocated \typename{DVector} with uniform $[0,1)$ or Gaussian (\argname{sigma} required) real random numbers.
+
+\manheading{Description}
+Calls \texttt{dvector\_random\_set} or \texttt{random\_number(vec \% v, sigma=sigma)}, returning silently if \texttt{vec \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(DVector), intent(inout)}{Pre-allocated real vector.}
+  \argitem{sigma}{real(8)}{Target Gaussian standard deviation (non-optional in the Gaussian overload).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u
+
+call matrix_random_init
+u = DVector(8)
+call random_number(u)
+call random_number(u, sigma=0.5_8)
+\end{lstlisting}
+
+\mansubgroup{Math Functions}
+
+% ===================================================================
+% abs, sin, cos, exp, log, sqrt (DVector)
+% ===================================================================
+\manentry{Pure Generic Functions}{abs, sin, cos, exp, log, sqrt (DVector)}{DVector: abs, sin, cos, exp, log, sqrt}{Element-wise real mathematical functions on \texttt{DVector}}{dvec:math_funcs}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: sin}}}{DVector: sin}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: cos}}}{DVector: cos}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: exp}}}{DVector: exp}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: log}}}{DVector: log}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: sqrt}}}{DVector: sqrt}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u2 = abs(u1);  u2 = sin(u1);  u2 = cos(u1);  u2 = exp(u1)
+u2 = log(u1);  u2 = sqrt(u1)   ! log: 0 -> -Inf, <0 -> NaN;  sqrt: <0 -> NaN
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate $|u_i|, \sin u_i, \cos u_i, \e{u_i}, \ln u_i, \sqrt{u_i}$ element-wise on \argname{u1}, returning a new \typename{DVector} with copied metadata.
+
+\manheading{Description}
+All six functions are \texttt{pure}. Negative elements give IEEE \texttt{NaN} in \procname{log} and \procname{sqrt}; a zero element gives $-\infty$ in \procname{log}, which \procname{isNaN} does \emph{not} detect.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{vec}{class(DVector), intent(in)}{Input real vector.}
+  \argitem{vecb}{type(DVector), return value}{Allocated \typename{DVector} with preserved metadata.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1, u2
+
+u1 = DVector('uniform', 6) + 0.1_8
+u2 = log(u1) + sqrt(u1)
+\end{lstlisting}
+
+\mansubgroup{Vector and Misc Procedures}
+
+% ===================================================================
+% dot_product, sort, maxval, minval, norm (DVector)
+% ===================================================================
+\manentry{Generic Functions}{dot\_product, sort, maxval, minval, norm (DVector)}{DVector: dot\textunderscore product, sort, maxval, minval, norm}{Inner product, Quicksort, extrema, and normalized $L_1$ norm for \texttt{DVector}}{dvec:vec_ops}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: sort}}}{DVector: sort}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: maxval}}}{DVector: maxval}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: minval}}}{DVector: minval}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: norm}}}{DVector: norm}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r  = dot_product(u1, u2)      ! pure: sum( u1 % v * u2 % v )
+u2 = sort(u1, [by])           ! by='RF','RR','AF','AR' (default 'RF')
+r  = maxval(u1, [mask])       ! pure: max value (optionally masked)
+r  = minval(u1, [mask])       ! pure: min value (optionally masked)
+r  = norm(u1)                 ! pure: sum( abs(u1 % v) ) / u1 % n
+\end{lstlisting}
+
+\manheading{Brief}
+Provide the real Euclidean inner product, real Quicksort, masked extrema (\procname{maxval}/\procname{minval}), and mean absolute norm for \typename{DVector}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{dot\_product(u1, u2)} (\texttt{pure}): Evaluates $\sum_i (u_1)_i (u_2)_i$ as a \typename{real(8)} scalar. Vectors of different length abort the program.
+  \item \procname{sort(u1, [by])}: Sorts \texttt{u1 \% v} by signed value (\texttt{'R'}) or absolute value (\texttt{'A'}), forward ascending (\texttt{'F'}) or reverse descending (\texttt{'R'}), defaulting to \texttt{'RF'}.
+  \item \procname{maxval(u1, [mask])} and \procname{minval(u1, [mask])} (\texttt{pure}): Wrap Fortran intrinsics \texttt{maxval(u1 \% v, mask)} and \texttt{minval(u1 \% v, mask)}. Note that \procname{maxval} and \procname{minval} are defined only for \typename{DVector}, not \typename{Vector}.
+  \item \procname{norm(u1)} (\texttt{pure}): Returns $\frac{1}{N}\sum_{i=1}^N |u_i|$.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{veca, vecb}{class(DVector), intent(in)}{Input real vector(s).}
+  \argitem{by}{character(*), optional, intent(in)}{Sort specification: \texttt{'RF'} (default), \texttt{'RR'}, \texttt{'AF'}, or \texttt{'AR'}.}
+  \argitem{mask}{logical, dimension(:), optional, intent(in)}{Boolean mask conformable with \texttt{veca \% v} for \procname{maxval}/\procname{minval}.}
+  \argitem{result}{real(8) or type(DVector)}{Scalar statistic or sorted \typename{DVector}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1, u2
+real(8)       :: rmax, rmin_neg
+
+u1       = DVector('gaussian', 10)
+u2       = sort(u1, by='AR')             ! descending by |u1(i)|
+rmax     = maxval(u1)
+rmin_neg = minval(u1, mask=(u1%v < 0.0_8))
+\end{lstlisting}
+
+% ===================================================================
+% metadata_copy, isNaN, mcmplx ref (DVector)
+% ===================================================================
+\manentry{Generic Procedures}{metadata\_copy, isNaN (DVector)}{DVector: metadata\textunderscore copy, isNaN}{Metadata copying and \texttt{NaN} testing for \texttt{DVector}}{dvec:misc}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DVector: isNaN}}}{DVector: isNaN}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call metadata_copy(u1, dst)   ! pure: dst may be type(DVector) or type(Vector)
+has_nan = isNaN(u1)           ! .true. if any entry of u1 % v is NaN
+v1 = mcmplx(u1, u2)           ! combine two DVectors into a Vector (Sec. 4.5)
+\end{lstlisting}
+
+\manheading{Brief}
+Copy bounds/length/name metadata between \typename{DVector} and \typename{Vector} objects (\procname{metadata\_copy}) or test for IEEE \texttt{NaN} elements (\procname{isNaN}).
+
+\manheading{Description}
+\procname{metadata\_copy} copies \texttt{n, is, ie, name} without allocating \texttt{dst \% v}. \procname{isNaN(u1)} returns \texttt{.true.} iff any element of \texttt{u1 \% v} satisfies \texttt{IEEE\_IS\_NAN}. Use \procname{mcmplx(u1, u2)} (Section~\ref{vec:misc}) to assemble two real \typename{DVector}s into a complex \typename{Vector}, and \procname{NaN(r)} (Section~\ref{mod:NaN}) to produce real \texttt{NaN} scalars.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{veca, vecb}{class(DVector) or class(Vector)}{Source (\texttt{intent(in)}) and destination (\texttt{intent(inout)}) for \procname{metadata\_copy}.}
+  \argitem{vec}{class(DVector), intent(in)}{Real vector inspected by \procname{isNaN}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DVector) :: u1, u2
+real(8)       :: r = 0.0_8
+
+u1 = DVector(4, is=1, name='realvec')
+call metadata_copy(u1, u2)
+allocate(u2 % v(u2 % is : u2 % ie))
+u2 % v = NaN(r)
+print *, 'isNaN(u2)?', isNaN(u2)
+\end{lstlisting}

@@ -1,0 +1,22 @@
+Produce functions related to the tensor product of Matrices.
+
+Under Construction....
+--------------------------------------------------
+
+
+
+ use tensorprod_mod
+
+ Z = tensorprod(X,Y)          X,Y ,Z complex or real arrays with 2 indices
+ Z = tensorprod(X1,X2,...,X6) Z,Xi,  complex or real arrays with 2 indices
+ Z = tensorprod(u,v)          u,v ,  complex or real arrays with 1 index
+
+ Z = vec2col(v)               Z(:,1) = v
+ Z = vec2row(u)               Z(1,:) = u
+
+ Z = tensorprod(vec2col(v),X) tensor products with vectors
+ Z = tensorprod(vec2row(v),X) tensor products with vectors
+ Z = tensorprod(X,vec2col(v)) tensor products with vectors
+ Z = tensorprod(X,vec2row(v)) tensor products with vectors
+
+ u = vectorize(Z)             construct column vector u from columns of Z stacking them on top of each other

@@ -1,0 +1,184 @@
+% ===================================================================
+% Sections 6-8: Module array_mod, File Structure, Performance, and References
+% ===================================================================
+
+% ===================================================================
+% Section 6: Module array_mod
+% ===================================================================
+\section{Module \texttt{array\_mod}}
+\label{sec:module_array}
+
+Under the hood, \modname{matrix\_mod\_matrix} delegates numerical linear algebra kernels---matrix/vector products, LU inversions, determinants, Pfaffians, eigensolvers, sorting, norms, and Gaussian random number generation---to \modname{matrix\_mod\_array}. The standalone public interface to \modname{matrix\_mod\_array} (along with \modname{tensorprod\_mod} and \modname{timer\_mod}) is exposed by the \modname{array\_mod} module (\filename{array\_mod.f90}), which operates directly on standard Fortran allocatable and assumed-shape arrays without derived-type wrapper overhead.
+
+For complete documentation of \modname{array\_mod}, consult its companion manual:
+\begin{itemize}
+  \item Local manual (in \filename{Documentation/}): \filename{array\_mod\_doc.pdf} (source: \filename{array\_mod\_doc.tex})
+  \item Online Google Drive draft: \href{https://docs.google.com/document/d/19KoFFvpxTcm9FN1zGqdGaBopyJhl2vYA0D1mEHbTUZ8/edit?usp=sharing}{array module documentation (Google Docs)}
+\end{itemize}
+You can freely use \modname{array\_mod} alongside \modname{matrix\_mod\_matrix} (or pass \texttt{mat \% v} / \texttt{vec \% v} directly to \modname{array\_mod} routines such as \procname{lmatmul}, \procname{tensorprod}, or \procname{eigenvectors(..., sortby=...)}).
+
+% ===================================================================
+% Section 7: File Structure
+% ===================================================================
+\section{File Structure}
+\label{sec:file_structure}
+
+The source files of the \texttt{Matrix} library in \filename{Software/Tools/Matrix/} follow a modular naming convention. The third component of the filename identifies the module:
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+matrix_mod_common.f90   ! Common constants (dp, PI, ONE, ZERO, IMU), f_mout
+matrix_mod_matrix.f90   ! Public types, generic interfaces, operator bindings
+matrix_mod_array.f90    ! Core array linear algebra procedures
+array_mod.f90           ! Clean public facade (array, timer, tensorprod)
+tensorprod_mod.f90      ! Kronecker tensor products and vectorization helpers
+timer_mod.f90           ! CPU and wall-clock execution timers
+pfapack/fortran/        ! Bundled PFAPACK library (f95_pfapack, skpfa, skpf10)
+\end{lstlisting}
+
+Files with a fourth filename component are included directly into their parent module source file via Fortran \texttt{include} statements:
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+matrix_mod_matrix_matrixClass.f90  ! Private base MatrixClass methods
+matrix_mod_matrix_matrix.f90       ! type(Matrix)  procedures and operators
+matrix_mod_matrix_dmatrix.f90      ! type(DMatrix) procedures and operators
+matrix_mod_matrix_vector.f90       ! type(Vector)  procedures and operators
+matrix_mod_matrix_dvector.f90      ! type(DVector) procedures and operators
+matrix_mod_array_lapack.f90        ! BLAS/LAPACK/PFAPACK array wrappers
+\end{lstlisting}
+
+Compilation is managed by the provided \filename{Makefile}:
+\lstset{language=bash}
+\begin{lstlisting}
+make gnu   # Compiles PFAPACK and gfortran *.mod/*.o -> libMatrix.a
+make intel # Compiles PFAPACK and ifx/MKL *.mod/*.o -> libMatrix.a
+make mods  # Compiles the Fortran modules and produces object/.mod files
+make lib   # Compiles the modules (if needed) and archives them into libMatrix.a
+make FC=ifort FFLAGS='-O3 -heap-arrays -xAVX -parallel' \
+              LIBS='-mkl=parallel' lib
+\end{lstlisting}
+
+% ===================================================================
+% Section 8: Performance
+% ===================================================================
+\section{Performance}
+\label{sec:performance}
+
+A comprehensive suite of matrix--matrix and matrix--vector multiplication benchmarks comparing \modname{matrix\_mod\_matrix} derived types against raw Fortran arrays was carried out on a desktop workstation\footnote{Desktop configuration: Intel(R) Core(TM) i7-4790 CPU @ 3.60\,GHz with Intel \texttt{ifort} Version 19.1.1.217 Build 20200306, compiled with \texttt{-O3 -heap-arrays -xHost -parallel -mkl=parallel}, \texttt{nthreads=8} (most likely up to 4 physical cores were utilized).} and on the ARIS national supercomputer.\footnote{Supercomputer configuration (ARIS): Intel Xeon E5-2680v2, Intel \texttt{ifort} Version 19.0.1.144 Build 20181018, compiled with \texttt{-O3 -heap-arrays -xCORE-AVX-I -parallel -mkl=parallel}, \texttt{nthreads=20}.} The benchmark programs and raw outputs (\filename{matrix\_benchmark*}, cited in the table captions) are not part of the current \filename{Software/Tools/Matrix/} distribution; the tables below reproduce the published results.
+
+\begin{notebox}[Summary of Performance Findings]
+\begin{itemize}
+  \item \textbf{General Design Trade-Off}: The derived types \typename{Matrix}, \typename{DMatrix}, \typename{Vector}, and \typename{DVector} are intended primarily for expressive scientific programming and educational use rather than raw high-performance computing. Their object abstraction carries a cost, though for sufficiently large matrices ($N \ge 200$) the overhead becomes small in several critical operations.
+  \item \textbf{Matrix--Matrix Multiplication (Table~\ref{tab:mat_b1}: B.1 \& B.3)}: Overloaded operator syntax (\lcodef{m3 = m1 * m2}) incurs significant allocation/copy overhead for $N \le 500$. Using the subroutine interface \lcodef{call mmmult(m1, m2, m3)} matches direct raw-array \lcodef{call mmmult(a1, a2, a3)} performance across almost all tested sizes.
+  \item \textbf{Matrix--Vector Multiplication (Table~\ref{tab:mat_b4}: B.4 \& B.6)}: On the desktop workstation, \lcodef{call mvmult(m1, v2, v3)} matches raw-array \lcodef{call mvmult(a1, u2, u3)} closely. On the 20-thread ARIS supercomputer node, however, the derived-type \procname{mvmult} pays a $27\%$--$36\%$ penalty for $N \ge 2000$, while operator overloading \lcodef{v3 = m1 * v2} pays a $27\%$--$52\%$ penalty (Table~B.6).
+\end{itemize}
+\end{notebox}
+
+% -------------------------------------------------------------------
+% Table B.2: Legend for Matrix-Matrix Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{c l}
+\toprule
+\textbf{Column} & \textbf{Matrix--Matrix Multiplication Method} \\
+\midrule
+\texttt{(3)} & Operator overloading: \lcodef{m3 = m1 * m2} \\
+\texttt{(7)} & Derived-type subroutine: \lcodef{call mmmult(m1, m2, m3)} \\
+\texttt{(8)} & Raw-array subroutine: \lcodef{call mmmult(a1, a2, a3)} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:mat_b2}Legend of the methods benchmarked in Table~\ref{tab:mat_b1} (sub-tables B.1 and B.3) with \texttt{type(Matrix) :: m1, m2, m3} and \texttt{complex(8), allocatable :: a1(:,:), a2(:,:), a3(:,:)}.}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.1 & B.3: Desktop and Supercomputer Matrix-Matrix Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r c c c @{\hspace{1.2em}} c c c}
+\toprule
+ & \multicolumn{3}{c}{\textbf{Table B.1: Desktop (Core i7-4790)}} & \multicolumn{3}{c}{\textbf{Table B.3: ARIS (Xeon E5-2680v2)}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+$N$ & \texttt{(3) m1*m2} & \texttt{(7) mmmult(m)} & \texttt{(8) mmmult(a)} & \texttt{(3) m1*m2} & \texttt{(7) mmmult(m)} & \texttt{(8) mmmult(a)} \\
+\midrule
+30   & \texttt{5.38e-06} & \texttt{3.43e-06} & \texttt{3.54e-06} & \texttt{2.12e-05} & \texttt{1.36e-05} & \texttt{1.38e-05} \\
+60   & \texttt{2.09e-05} & \texttt{1.37e-05} & \texttt{1.37e-05} & \texttt{4.01e-05} & \texttt{2.28e-05} & \texttt{2.28e-05} \\
+120  & \texttt{1.08e-04} & \texttt{8.03e-05} & \texttt{7.98e-05} & \texttt{1.26e-04} & \texttt{6.78e-05} & \texttt{6.76e-05} \\
+190  & \texttt{3.69e-04} & \texttt{2.91e-04} & \texttt{2.92e-04} & \texttt{3.71e-04} & \texttt{2.40e-04} & \texttt{2.37e-04} \\
+250  & \texttt{7.89e-04} & \texttt{6.52e-04} & \texttt{6.51e-04} & \texttt{6.83e-04} & \texttt{4.47e-04} & \texttt{4.56e-04} \\
+500  & \texttt{6.31e-03} & \texttt{5.33e-03} & \texttt{5.34e-03} & \texttt{3.93e-03} & \texttt{2.72e-03} & \texttt{2.74e-03} \\
+750  & \texttt{2.00e-02} & \texttt{1.72e-02} & \texttt{1.72e-02} & \texttt{1.31e-02} & \texttt{9.75e-03} & \texttt{9.69e-03} \\
+1000 & \texttt{4.49e-02} & \texttt{4.06e-02} & \texttt{4.06e-02} & \texttt{2.83e-02} & \texttt{2.24e-02} & \texttt{2.22e-02} \\
+2000 & \texttt{3.40e-01} & \texttt{3.43e-01} & \texttt{3.43e-01} & \texttt{2.00e-01} & \texttt{1.71e-01} & \texttt{1.70e-01} \\
+4000 & \texttt{2.56e+00} & \texttt{2.44e+00} & \texttt{2.47e+00} & \texttt{1.47e+00} & \texttt{1.28e+00} & \texttt{1.28e+00} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:mat_b1}\label{tab:mat_b3}Time per $N\times N$ complex matrix--matrix multiplication in seconds on the desktop workstation (\texttt{matrix\_benchmark\_v01.dat}, Table~B.1) and on the ARIS supercomputer (\texttt{matrix\_benchmark\_v00\_aris.dat}, Table~B.3). Columns correspond to lines starting with \texttt{mm}; definitions are given in Table~\ref{tab:mat_b2}.}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.5: Legend for Matrix-Vector Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\begin{tabular}{c l}
+\toprule
+\textbf{Column} & \textbf{Matrix--Vector Multiplication Method} \\
+\midrule
+\texttt{(3)} & Operator overloading: \lcodef{v3 = m1 * v2} \\
+\texttt{(6)} & Derived-type subroutine: \lcodef{call mvmult(m1, v2, v3)} \\
+\texttt{(7)} & Raw-array subroutine: \lcodef{call mvmult(a1, u2, u3)} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:mat_b5}Legend of the methods benchmarked in Table~\ref{tab:mat_b4} (sub-tables B.4 and B.6) with \texttt{type(Matrix) :: m1}, \texttt{type(Vector) :: v2, v3}, and \texttt{complex(8), allocatable :: a1(:,:), u2(:), u3(:)}.}
+\end{table}
+
+% -------------------------------------------------------------------
+% Table B.4 & B.6: Desktop and Supercomputer Matrix-Vector Benchmarks
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r c c c @{\hspace{1.2em}} c c c}
+\toprule
+ & \multicolumn{3}{c}{\textbf{Table B.4: Desktop (Core i7-4790)}} & \multicolumn{3}{c}{\textbf{Table B.6: ARIS (Xeon E5-2680v2)}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+$N$ & \texttt{(3) m1*v2} & \texttt{(6) mvmult(m)} & \texttt{(7) mvmult(a)} & \texttt{(3) m1*v2} & \texttt{(6) mvmult(m)} & \texttt{(7) mvmult(a)} \\
+\midrule
+30    & \texttt{9.88e-07} & \texttt{5.63e-07} & \texttt{5.63e-07} & \texttt{1.75e-06} & \texttt{9.15e-07} & \texttt{9.12e-07} \\
+60    & \texttt{2.16e-06} & \texttt{1.71e-06} & \texttt{1.71e-06} & \texttt{3.99e-06} & \texttt{3.17e-06} & \texttt{3.17e-06} \\
+120   & \texttt{4.81e-06} & \texttt{4.14e-06} & \texttt{4.44e-06} & \texttt{9.59e-06} & \texttt{6.73e-06} & \texttt{1.01e-05} \\
+190   & \texttt{1.06e-05} & \texttt{9.82e-06} & \texttt{9.89e-06} & \texttt{1.43e-05} & \texttt{1.05e-05} & \texttt{1.07e-05} \\
+250   & \texttt{1.65e-05} & \texttt{1.55e-05} & \texttt{1.58e-05} & \texttt{3.03e-05} & \texttt{2.58e-05} & \texttt{2.84e-05} \\
+500   & \texttt{4.11e-05} & \texttt{4.06e-05} & \texttt{4.09e-05} & \texttt{6.54e-05} & \texttt{5.84e-05} & \texttt{5.98e-05} \\
+750   & \texttt{1.73e-04} & \texttt{1.70e-04} & \texttt{1.61e-04} & \texttt{1.44e-04} & \texttt{1.14e-04} & \texttt{1.20e-04} \\
+1000  & \texttt{6.04e-04} & \texttt{6.38e-04} & \texttt{6.91e-04} & \texttt{1.91e-04} & \texttt{1.58e-04} & \texttt{1.48e-04} \\
+2000  & \texttt{2.92e-03} & \texttt{2.87e-03} & \texttt{2.87e-03} & \texttt{2.25e-03} & \texttt{1.97e-03} & \texttt{1.48e-03} \\
+4000  & \texttt{1.17e-02} & \texttt{1.15e-02} & \texttt{1.15e-02} & \texttt{7.56e-03} & \texttt{7.45e-03} & \texttt{5.49e-03} \\
+8000  & \texttt{4.64e-02} & \texttt{4.62e-02} & \texttt{4.62e-02} & \texttt{2.79e-02} & \texttt{2.77e-02} & \texttt{2.15e-02} \\
+16000 & \texttt{1.89e-01} & \texttt{1.87e-01} & \texttt{1.90e-01} & \texttt{1.01e-01} & \texttt{1.01e-01} & \texttt{7.97e-02} \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:mat_b4}\label{tab:mat_b6}Time per complex matrix--vector multiplication in seconds on the desktop workstation (\texttt{matrix\_benchmark\_v01.dat}, Table~B.4) and on the ARIS supercomputer (\texttt{matrix\_benchmark\_v01\_aris.dat}, Table~B.6). Columns correspond to lines starting with \texttt{mv}; definitions are given in Table~\ref{tab:mat_b5}.}
+\end{table}
+
+% ===================================================================
+% References
+% ===================================================================
+\begin{thebibliography}{9}
+
+\bibitem{Wimmer_2012}
+M.~Wimmer,
+\emph{Algorithm 923: Efficient Numerical Computation of the Pfaffian for Dense and Banded Skew-Symmetric Matrices},
+ACM Transactions on Mathematical Software (TOMS) \textbf{38} (2012) 30,
+\href{https://arxiv.org/abs/1102.3440}{arXiv:1102.3440 [cond-mat.mes-hall]}.
+
+\bibitem{pfapack}
+M.~Wimmer,
+\emph{PFAPACK: A library for computing the Pfaffian of skew-symmetric matrices},
+\url{https://www.michaelwimmer.org/downloads.html}.
+
+\end{thebibliography}

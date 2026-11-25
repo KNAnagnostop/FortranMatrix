@@ -1,0 +1,423 @@
+% ===================================================================
+% Subsection 2.3: Linear Algebra
+% ===================================================================
+\subsection{Linear Algebra}
+\label{subsec:linear_algebra}
+
+This subsection documents the high-level linear algebra solvers of \modname{array\_mod} for computing matrix inverses, determinants, Pfaffians, eigenvalues, and right eigenvectors. Under the hood, these procedures query optimal \texttt{LAPACK} workspace sizes dynamically (\texttt{LWORK = -1}) and invoke \texttt{LAPACK} and \texttt{PFAPACK} routines.
+
+% -------------------------------------------------------------------
+\subsubsection{Inverse, determinant, Pfaffian}
+\label{subsubsec:inv_det_pf}
+
+% ===================================================================
+% 28. inverse
+% ===================================================================
+\manentry{Generic Function}{inverse}{inverse}{Computes the matrix inverse $C^{-1}$ of a real or complex square matrix via LU factorization}{proc:inverse}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+CI = inverse(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the inverse $C^{-1}$ of a non-singular square \typename{complex(8)} or \typename{real(8)} matrix \argname{C} such that $C^{-1} C = C C^{-1} = I$.
+
+\manheading{Description}
+Given a contiguous $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{inverse} computes its inverse \argname{CI} in two steps using \texttt{LAPACK}:
+\begin{enumerate}
+  \item Performs an $LU$ decomposition with partial pivoting, $C = P L U$, by calling \texttt{zgetrf} (complex) or \texttt{dgetrf} (real).
+  \item Queries the optimal workspace size (\texttt{LWORK = -1}) and inverts the $LU$-factored matrix by calling \texttt{zgetri} (complex) or \texttt{dgetri} (real).
+\end{enumerate}
+If \argname{C} is not square ($\texttt{size(C,1)} \neq \texttt{size(C,2)}$), \procname{inverse} returns a \texttt{size(C,1)}$\times$\texttt{size(C,2)} array filled with IEEE \procname{NaN}. If \argname{C} is singular (\texttt{zgetrf}/\texttt{dgetrf} or \texttt{zgetri}/\texttt{dgetri} returns \texttt{INFO > 0}), the program does \emph{not} abort: the returned $N\times N$ array is filled with \procname{NaN}, which can be detected with \lcodef{isNaN(CI)}. Only an illegal-argument failure (\texttt{INFO < 0}) or a failed workspace query prints an error message to \texttt{stderr} and terminates execution via \texttt{matrix\_error} with a non-zero exit status (\texttt{error stop 1}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ non-singular square matrix.}
+  \argitem{CI}{complex(8) or real(8), dimension(:,:), allocatable, return value}{Allocated $N\times N$ inverse matrix $C^{-1}$ of the same type as \argname{C} (filled with \procname{NaN} if \argname{C} is singular or non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8), allocatable :: m1(:,:), m2(:,:)
+real   (8), allocatable :: d1(:,:), d2(:,:)
+
+allocate(m1(8,8), d1(8,8))
+call random_number(m1, sigma=1.0_8)
+call random_number(d1, sigma=1.0_8)
+
+m2 = inverse(m1)   ! lmatmul(m1, m2) == identitymatrix(8)
+d2 = inverse(d1)   ! lmatmul(d1, d2) == didentitymatrix(8)
+if (isNaN(d2)) print *, 'd1 is singular'
+\end{lstlisting}
+
+% ===================================================================
+% 29. determinant
+% ===================================================================
+\manentry{Generic Function}{determinant}{determinant}{Computes the determinant $\det C$ of a real or complex square matrix via LU factorization}{proc:determinant}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+det = determinant(C)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the determinant $\det C$ of an $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C} using \texttt{LAPACK}'s \texttt{zgetrf} or \texttt{dgetrf}.
+
+\manheading{Description}
+The generic function \procname{determinant} copies the input $N\times N$ matrix \argname{C} into a temporary workspace and computes its $LU$ factorization with partial pivoting, $C = P L U$, via \texttt{zgetrf} (complex) or \texttt{dgetrf} (real). Because $L$ has unit diagonal elements, the determinant is evaluated as the product of the diagonal entries of $U$ multiplied by the sign of the row permutation $P$:
+\begin{align}
+  \det C = (-1)^{S} \prod_{i=1}^{N} U_{ii}\, ,
+\end{align}
+where $S$ is the number of pivot indices satisfying $\texttt{ipiv}(i) \neq i$.
+\begin{itemize}
+  \item For singular matrices (\texttt{INFO > 0} returned by \texttt{zgetrf}/\texttt{dgetrf}), \procname{determinant} does \emph{not} abort; it returns $0$ (\texttt{(0.0\_8, 0.0\_8)} for complex \argname{C}, \texttt{0.0\_8} for real \argname{C}).
+  \item For an empty $0\times 0$ matrix ($N = 0$), \procname{determinant} returns $1$ (\texttt{(1.0\_8, 0.0\_8)} for complex \argname{C}, \texttt{1.0\_8} for real \argname{C}).
+  \item For non-square input ($\texttt{size(C,1)} \neq \texttt{size(C,2)}$), \procname{determinant} returns \procname{NaN} (\texttt{(NaN, NaN)} for complex \argname{C}).
+  \item Only an illegal-argument failure from \texttt{LAPACK} (\texttt{INFO < 0}) terminates execution via \texttt{matrix\_error}.
+\end{itemize}
+
+\begin{warnbox}[Floating-Point Overflow Limit for Large Matrices]
+Because $\det C$ grows or decays exponentially with matrix size $N$, \procname{determinant} is suitable only for moderately sized matrices. For example, for an $N\times N$ matrix filled with Gaussian random numbers with $\sigma = 1$, IEEE double-precision overflow ($|\det C| > 10^{308}$) occurs above $N \sim 192$. For larger matrices, always use \procname{lndet}.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ square matrix.}
+  \argitem{det}{complex(8) or real(8), scalar, return value}{The determinant $\det C$, matching the data type of \argname{C} ($0$ for singular matrices, $1$ for $N = 0$).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(16,16), zdet
+real   (8) :: d1(16,16), rdet
+
+call random_number(m1, sigma=1.0_8)
+call random_number(d1, sigma=1.0_8)
+
+zdet = determinant(m1)
+rdet = determinant(d1)
+\end{lstlisting}
+
+% ===================================================================
+% 30. lndet
+% ===================================================================
+\manentry{Generic Function}{lndet}{lndet}{Computes the logarithm of the modulus and the phase/sign of $\det C$ for large matrices}{proc:lndet}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+ldet = lndet(C)
+! Reconstruct determinant: det = exp(ldet(1)) * ldet(2)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a 2-element array $\texttt{ldet(1:2)}$ containing $\ln|\det C|$ in \texttt{ldet(1)} and the complex phase $\e{i\arg(\det C)}$ (or real sign $\pm 1.0$) in \texttt{ldet(2)} (or $\texttt{ldet(1)} = -\infty$ and $\texttt{ldet(2)} = 0$ when $\det C = 0$).
+
+\manheading{Description}
+To prevent floating-point overflow or underflow when $N \gtrsim 192$, \procname{lndet} performs the $LU$ decomposition $C = P L U$ via \texttt{zgetrf} or \texttt{dgetrf} and accumulates the logarithm of the absolute values and the unit-modulus phase of the diagonal elements $U_{ii}$ separately:
+\begin{align}
+  \texttt{ldet(1)} &= \ln|\det C| = \sum_{i=1}^{N} \ln|U_{ii}|\, , \\
+  \texttt{ldet(2)} &= \e{i\arg(\det C)} = (-1)^{S} \prod_{i=1}^{N} \frac{U_{ii}}{|U_{ii}|}\, .
+\end{align}
+The full determinant is related to \texttt{ldet} by:
+\begin{align}
+  \det C = \exp(\texttt{ldet(1)}) \times \texttt{ldet(2)}\, .
+\end{align}
+\begin{itemize}
+  \item For a non-singular \typename{complex(8)} matrix \argname{C}, \procname{lndet} returns a \typename{complex(8)} array \texttt{ldet(2)} where \texttt{ldet(1)} has zero imaginary part ($\Re(\texttt{ldet(1)}) = \ln|\det C|$) and \texttt{ldet(2)} is the unit-modulus complex phase $\e{i\theta}$.
+  \item For a non-singular \typename{real(8)} matrix \argname{C}, \procname{lndet} returns a \typename{real(8)} array \texttt{ldet(2)} where \texttt{ldet(1)} $= \ln|\det C|$ and \texttt{ldet(2)} $= \pm 1.0$ (\texttt{+/-1.0\_8}).
+  \item If \argname{C} is singular (\texttt{INFO > 0} from \texttt{zgetrf}/\texttt{dgetrf}, or any $|U_{ii}| = 0$ so that $\det C = 0$), \procname{lndet} does \emph{not} abort; it returns \texttt{ldet(1) = (}$-\infty$\texttt{, 0.0\_8)} (complex) or $-\infty$ (real) via \texttt{IEEE\_VALUE(0.0\_dp, IEEE\_NEGATIVE\_INF)}, and \texttt{ldet(2) = (0.0\_8, 0.0\_8)} (complex) or \texttt{0.0\_8} (real), so that $\Re(\texttt{ldet(1)}) = \ln|0| = -\infty$ and $\exp(\texttt{ldet(1)}) \times \texttt{ldet(2)} = 0$ unambiguously.
+  \item For an empty $0\times 0$ matrix ($N = 0$), \procname{lndet} returns $\texttt{ldet(1)} = 0$ and $\texttt{ldet(2)} = 1$.
+  \item For non-square input, both elements \texttt{ldet(1)} and \texttt{ldet(2)} are set to \procname{NaN}.
+  \item Execution terminates via \texttt{matrix\_error} only if \texttt{zgetrf}/\texttt{dgetrf} reports an illegal argument (\texttt{INFO < 0}).
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ square matrix.}
+  \argitem{det}{complex(8) or real(8), dimension(2), return value}{Two-element array: \texttt{det(1)} $= \ln|\det C|$ and \texttt{det(2)} $= \e{i\arg(\det C)}$ (or $\pm 1.0$ for real \argname{C}), or \texttt{det(1)} $= -\infty$ and \texttt{det(2)} $= 0$ for singular \argname{C} (so that $\exp(\texttt{det(1)}) \times \texttt{det(2)} = 0$).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(32,32), zdet, zldet(2)
+real   (8) :: d1(32,32), rdet, rldet(2)
+
+call random_number(m1, sigma=1.0_8)
+call random_number(d1, sigma=1.0_8)
+
+zldet = lndet(m1)
+zdet  = exp(zldet(1)) * zldet(2)   ! equals determinant(m1)
+
+rldet = lndet(d1)
+rdet  = exp(rldet(1)) * rldet(2)   ! equals determinant(d1)
+\end{lstlisting}
+
+% ===================================================================
+% 31. pfaffian
+% ===================================================================
+\manentry{Generic Function}{pfaffian}{pfaffian}{Computes the Pfaffian $\Pf C$ of a complex antisymmetric matrix}{proc:pfaffian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+Pf = Pfaffian(C, [alg])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the Pfaffian $\Pf C$ (satisfying $(\Pf C)^2 = \det C$ for even dimension $N = 2n$, and $\Pf C = 0$ for odd $N$ in both algorithms) of an $N\times N$ complex skew-symmetric matrix \argname{C} using the \texttt{PFAPACK} library (default) or Simon Catterall's Gaussian elimination algorithm.
+
+\manheading{Description}
+For an $N\times N$ antisymmetric matrix $C = -C^T$, the Pfaffian vanishes identically when $N$ is odd, while for even dimension $N = 2n$ the determinant is the square of the Pfaffian, $(\Pf C)^2 = \det C$. The function \procname{pfaffian} (case-insensitive: \texttt{Pfaffian}) supports two algorithms selected via the optional argument \argname{alg}:
+\begin{itemize}
+  \item \textbf{\texttt{alg='P'} (Default --- \texttt{PFAPACK} library)}: Calls the \texttt{skpfa} subroutine from Michael Wimmer's \texttt{PFAPACK} library~\cite{Wimmer_2012,pfapack} (incorporated into \filename{libMatrix.a} as of April 22, 2026). Note that all \texttt{PFAPACK} subroutines can also be accessed directly by adding \lcodef{use f95_pfapack}. \texttt{PFAPACK} is more than $10\times$ faster than Catterall's algorithm for large matrices.
+  \item \textbf{\texttt{alg='C'} or \texttt{'c'} (Simon Catterall's algorithm)}: Calls \texttt{array2\_pfaffian(C)}, an optimized Fortran implementation of Simon Catterall's skew-symmetric Gaussian elimination algorithm with pivoting~\cite{Catterall_2003}. Zero pivots terminate elimination early and return $0$ without division by zero.
+\end{itemize}
+Both \texttt{alg='P'} and \texttt{alg='C'} share the following edge-case behavior:
+\begin{itemize}
+  \item If \argname{C} is odd-dimensional (\texttt{MOD(N,2) /= 0}) or singular, \procname{pfaffian} returns \texttt{(0.0\_8, 0.0\_8)}.
+  \item If \argname{C} is an empty $0\times 0$ matrix ($N = 0$), \procname{pfaffian} returns \texttt{(1.0\_8, 0.0\_8)}.
+  \item If \argname{C} is non-square, \procname{pfaffian} returns \texttt{(NaN, NaN)}.
+  \item If \texttt{skpfa} reports a non-zero \texttt{INFO}, execution terminates via \texttt{matrix\_error}.
+  \item Omitting \argname{alg} or passing an empty string \texttt{alg=''} selects the default \texttt{'P'}.
+\end{itemize}
+
+\begin{warnbox}[Overflow Limit for Large Matrices]
+For a $2n\times 2n$ complex antisymmetric matrix filled with Gaussian $\sigma = 1$ entries, \procname{pfaffian} can be used up to matrix dimensions $2n \sim 312$ before double-precision floating-point overflow occurs. For larger matrices ($2n \gtrsim 312$), use \procname{lnPfaffian}.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ complex antisymmetric matrix ($C^T = -C$).}
+  \argitem{alg}{character(*), optional, intent(in)}{Algorithm selector: \texttt{'P'} (default, also used if empty \texttt{''}) uses \texttt{PFAPACK}'s \texttt{skpfa}; \texttt{'C'} or \texttt{'c'} uses Simon Catterall's algorithm.}
+  \argitem{pfaffian}{complex(8), scalar, return value}{The computed Pfaffian $\Pf C$ (\texttt{(0.0\_8, 0.0\_8)} for odd $N$ or singular \argname{C}; \texttt{(1.0\_8, 0.0\_8)} for $N = 0$).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(16,16), pf1, pf2
+
+call random_number(m1, sigma=1.0_8)
+call antisymmetric_set(m1)
+
+pf1 = Pfaffian(m1)            ! uses PFAPACK (default, >10x faster)
+pf2 = Pfaffian(m1, alg='C')   ! uses Catterall's algorithm
+! Note: pf1**2 == determinant(m1)
+\end{lstlisting}
+
+% ===================================================================
+% 32. lnPfaffian
+% ===================================================================
+\manentry{Generic Function}{lnPfaffian}{lnPfaffian}{Computes the logarithm of the modulus and the complex phase of $\Pf C$ for large antisymmetric matrices}{proc:lnPfaffian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+lnPf = lnPfaffian(C, [alg])
+! Reconstruct Pfaffian: Pf = exp(lnPf(1)) * lnPf(2)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns a 2-element \typename{complex(8)} array $\texttt{lnPf(1:2)}$ containing $\ln|\Pf C|$ in \texttt{lnPf(1)} and the unit-modulus complex phase $\e{i\arg(\Pf C)}$ in \texttt{lnPf(2)} (or \texttt{lnPf(1) = (}$-\infty$\texttt{, 0.0\_8)} and \texttt{lnPf(2) = (0.0\_8, 0.0\_8)} when $\Pf C = 0$).
+
+\manheading{Description}
+To prevent floating-point overflow on large antisymmetric matrices ($2n \gtrsim 312$), \procname{lnPfaffian} decomposes the Pfaffian into its logarithmic magnitude and complex phase:
+\begin{align}
+  \Pf C = \exp(\texttt{lnPf(1)}) \times \texttt{lnPf(2)}\, ,
+\end{align}
+where:
+\begin{align}
+  \texttt{lnPf(1)} &= \ln|\Pf C|\, , \\
+  \texttt{lnPf(2)} &= \e{i\arg(\Pf C)}\, .
+\end{align}
+\begin{itemize}
+  \item \textbf{Default (\texttt{alg='P'})}: Calls \texttt{PFAPACK}'s overflow-safe subroutine \texttt{skpf10(C\_, lpf, info=info)} (aborting via \texttt{matrix\_error} if \texttt{info /= 0}), which returns the base-10 mantissa \texttt{lpf(1)} and exponent \texttt{lpf(2)} such that $\Pf C = \texttt{lpf(1)} \times 10^{\texttt{lpf(2)}}$. If \texttt{abs(lpf(1)) == 0.0\_dp} (singular matrix), \texttt{log} and \texttt{atan2} are skipped and $\texttt{[(}-\infty\texttt{, 0), (0, 0)]}$ is returned directly; otherwise it converts them to natural logarithm and phase via:
+  \begin{align}
+    \texttt{lnPf(1)} &= \ln|\texttt{lpf(1)}| + \Re(\texttt{lpf(2)})\ln 10\, , \\
+    \texttt{lnPf(2)} &= \exp\!\left(i\,\texttt{atan2}(\Im(\texttt{lpf(1)}), \Re(\texttt{lpf(1)}))\right)\, .
+  \end{align}
+  \item \textbf{\texttt{alg='C'} or \texttt{'c'}}: Calls \texttt{array2\_log\_pfaffian(C)} (Simon Catterall's algorithm), accumulating $\sum_{i=1,3,\ldots}\ln|M_{i+1,i}|$ and the product of unit phases $M_{i+1,i}/|M_{i+1,i}|$ at each $2\times 2$ pivot step; zero pivots terminate elimination early and return $\texttt{[(}-\infty\texttt{, 0), (0, 0)]}$ without division by zero.
+\end{itemize}
+Both \texttt{alg='P'} and \texttt{alg='C'} handle edge cases identically:
+\begin{itemize}
+  \item If \argname{C} is odd-dimensional (\texttt{MOD(N,2) /= 0}) or singular ($\Pf C = 0$), \procname{lnPfaffian} returns \texttt{lnPf(1) = (}$-\infty$\texttt{, 0.0\_8)} (via \texttt{IEEE\_VALUE(0.0\_dp, IEEE\_NEGATIVE\_INF)}) and \texttt{lnPf(2) = (0.0\_8, 0.0\_8)}, satisfying $\exp(\texttt{lnPf(1)}) \times \texttt{lnPf(2)} = \texttt{(0.0\_8, 0.0\_8)}$.
+  \item If \argname{C} is an empty $0\times 0$ matrix ($N = 0$), \procname{lnPfaffian} returns \texttt{lnPf(1) = (0.0\_8, 0.0\_8)} and \texttt{lnPf(2) = (1.0\_8, 0.0\_8)}.
+  \item If \argname{C} is non-square, both elements \texttt{lnPf(1)} and \texttt{lnPf(2)} are set to \texttt{(NaN, NaN)}.
+  \item If \texttt{skpf10} fails with \texttt{info /= 0}, execution terminates via \texttt{matrix\_error}.
+  \item Empty \texttt{alg=''} defaults to \texttt{'P'}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ complex antisymmetric matrix ($C^T = -C$).}
+  \argitem{alg}{character(*), optional, intent(in)}{Algorithm selector: \texttt{'P'} (default, also used if empty \texttt{''}; \texttt{PFAPACK} \texttt{skpf10}) or \texttt{'C'}/\texttt{'c'} (Simon Catterall's algorithm).}
+  \argitem{pfaffian}{complex(8), dimension(2), return value}{Two-element complex array: \texttt{pfaffian(1)} $= \ln|\Pf C|$ and \texttt{pfaffian(2)} $= \e{i\arg(\Pf C)}$, or \texttt{pfaffian(1) = (}$-\infty$\texttt{, 0.0\_8)} and \texttt{pfaffian(2) = (0.0\_8, 0.0\_8)} when \argname{C} is odd-dimensional or singular ($\exp(\texttt{pfaffian(1)}) \times \texttt{pfaffian(2)} = 0$).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: m1(64,64), pf, lnPf(2), lnPf_cat(2)
+
+call random_number(m1, sigma=1.0_8)
+call antisymmetric_set(m1)
+
+lnPf     = lnPfaffian(m1)            ! PFAPACK skpf10 (default)
+lnPf_cat = lnPfaffian(m1, alg='C')   ! Catterall algorithm
+pf       = exp(lnPf(1)) * lnPf(2)    ! equals Pfaffian(m1)
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsubsection{Eigenvalues and eigenvectors:}
+\label{subsubsec:eigenvalues_eigenvectors}
+
+% ===================================================================
+% 33. eigenvalues
+% ===================================================================
+\manentry{Generic Function}{eigenvalues}{eigenvalues}{Computes the eigenvalues of a general, Hermitian, or real symmetric square matrix}{proc:eigenvalues}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+eval = eigenvalues(C, [mtype], [sortby])
+\end{lstlisting}
+
+\manheading{Brief}
+Computes all $N$ eigenvalues of an $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C} using \texttt{LAPACK} (\texttt{zgeev}, \texttt{zheev}, \texttt{dgeev}, or \texttt{dsyev}), with optional sorting.
+
+\manheading{Description}
+Given a contiguous $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{eigenvalues} allocates and returns a 1D \typename{complex(8)} array \argname{eigenval} of length $N$ containing the eigenvalues $\{\lambda_1, \ldots, \lambda_N\}$ of \argname{C}:
+\begin{itemize}
+  \item \textbf{General Complex Matrix (\argname{C} is \typename{complex(8)}, default \texttt{mtype='ZG'})}: Calls \texttt{LAPACK}'s \texttt{zgeev} with \texttt{JOBVL='N'}, \texttt{JOBVR='N'}.
+  \item \textbf{Hermitian Complex Matrix (\argname{C} is \typename{complex(8)}, \texttt{mtype='ZH'} or \texttt{'H'})}: Calls \texttt{LAPACK}'s \texttt{zheev} with \texttt{JOBZ='N'}, \texttt{UPLO='U'}. This is significantly faster than \texttt{zgeev} and returns real eigenvalues (stored in the \typename{complex(8)} return vector with zero imaginary parts) ordered by \texttt{zheev} in ascending algebraic value.
+  \item \textbf{General Real Matrix (\argname{C} is \typename{real(8)}, default \texttt{mtype='DG'})}: Calls \texttt{LAPACK}'s \texttt{dgeev} with \texttt{JOBVL='N'}, \texttt{JOBVR='N'}. Because a general real matrix can have complex-conjugate pairs of eigenvalues, the returned array is \typename{complex(8)}.
+  \item \textbf{Real Symmetric Matrix (\argname{C} is \typename{real(8)}, \texttt{mtype='DS'} or \texttt{'S'})}: Calls \texttt{LAPACK}'s \texttt{dsyev} with \texttt{JOBZ='N'}, \texttt{UPLO='U'}. The real eigenvalues (ordered ascending by \texttt{dsyev}) are returned as a \typename{complex(8)} array (which can be assigned directly to a \typename{real(8)} vector \texttt{deval = eigenvalues(B, mtype='DS')} in Fortran).
+\end{itemize}
+If \argname{C} is non-square, or if the \texttt{LAPACK} routine fails to converge (\texttt{INFO > 0}), the returned vector of length \texttt{size(C,1)} is filled with \procname{NaN} (test with \lcodef{isNaN(eval)}); only an illegal-argument failure (\texttt{INFO < 0}) or an invalid internal \texttt{job} value terminates execution via \texttt{matrix\_error}.
+
+If the optional argument \argname{sortby} is present, the eigenvalues are sorted prior to return via \texttt{sort(eigenval, by=sortby)} using any of the two-character complex sorting codes (\texttt{'RF'}, \texttt{'RR'}, \texttt{'IF'}, \texttt{'IR'}, \texttt{'MF'}, \texttt{'MR'}).
+
+\begin{warnbox}[Eigenvalue Ordering Subtlety in LAPACK \texttt{zgeev} / \texttt{dgeev}]
+\begin{enumerate}
+  \item When \texttt{mtype='ZH'} (or \texttt{'DS'}) is used, \texttt{zheev} (or \texttt{dsyev}) automatically sorts the real eigenvalues in ascending algebraic order ($\lambda_1 \le \lambda_2 \le \cdots \le \lambda_N$), which differs from the unsorted order returned by \texttt{zgeev} (or \texttt{dgeev}).
+  \item Even for the same general matrix \argname{A}, for large enough dimensions ($N \gtrsim 100$), \texttt{LAPACK}'s \texttt{zgeev}/\texttt{dgeev} does \emph{not} return the eigenvalues in the exact same order when called with \texttt{job='N'} (\procname{eigenvalues(A)}) versus \texttt{job='V'} (\procname{eigenvectors(A)}). Always pass \texttt{sortby='RF'} (or sort both results with \procname{sort}) before comparing them element-by-element!
+\end{enumerate}
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ square matrix.}
+  \argitem{mtype}{character(*), optional, intent(in)}{Matrix symmetry type: \texttt{'ZH'} for complex Hermitian, \texttt{'DS'} for real symmetric, or \texttt{'ZG'}/\texttt{'DG'} (default) for general matrices.}
+  \argitem{sortby}{character(*), optional, intent(in)}{Two-character sorting code forwarded to \procname{sort}: \texttt{'RF'} / \texttt{'RR'} (real part forward/reverse), \texttt{'IF'} / \texttt{'IR'} (imaginary part forward/reverse), \texttt{'MF'} / \texttt{'MR'} (modulus forward/reverse).}
+  \argitem{eigenval}{complex(8), dimension(:), allocatable, return value}{Allocated 1D array of length $N$ containing the eigenvalues of \argname{C}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+complex(8) :: A(8,8), eval(8)
+real   (8) :: B(8,8), deval(8)
+
+call random_number(A); call random_number(B)
+
+eval  = eigenvalues(A)                          ! general complex matrix
+eval  = eigenvalues(A, sortby='RF')             ! sorted ascending by Re(lambda)
+
+call hermitian_set(A)
+eval  = eigenvalues(A, mtype='ZH')              ! faster for Hermitian A
+
+eval  = eigenvalues(B)                          ! general real B has complex eigenvalues
+call symmetric_set(B)
+deval = eigenvalues(B, mtype='DS', sortby='RR') ! real symmetric B, sorted descending
+\end{lstlisting}
+
+% ===================================================================
+% 34. eigenvectors
+% ===================================================================
+\manentry{Generic Function}{eigenvectors}{eigenvectors}{Computes both the eigenvalues and normalized right eigenvectors of a square matrix}{proc:eigenvectors}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+W    = eigenvectors(C, [mtype], [sortby])
+eval = W(:, 1 )   ! Column 1 contains the N eigenvalues
+evec = W(:, 2:)   ! Columns 2..N+1 contain the N right eigenvectors
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the eigenvalues $\lambda_i$ and normalized right eigenvectors $v_i$ ($C v_i = \lambda_i v_i$) of an $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, packing them into an $N\times (N+1)$ complex array \argname{W}.
+
+\manheading{Description}
+Given a contiguous $N\times N$ \typename{complex(8)} or \typename{real(8)} matrix \argname{C}, \procname{eigenvectors} allocates and returns an $N\times (N+1)$ \typename{complex(8)} matrix \argname{evs} (\argname{W}) packed as follows:
+\begin{itemize}
+  \item \textbf{First column \texttt{W(:,1)}}: Contains the $N$ eigenvalues $\lambda_i = \texttt{eval}(i)$ for $i=1,\ldots,N$.
+  \item \textbf{Remaining $N$ columns \texttt{W(:,2:N+1)}}: Contains the $N\times N$ eigenvector matrix $V = \texttt{evec}(:,1:N)$, where the $i$-th column $v_i = \texttt{evec}(:,i) = \texttt{W}(:,i+1)$ is the Euclidean-normalized right eigenvector corresponding to $\lambda_i$:
+  \begin{align}
+    C\, v_i = \lambda_i\, v_i \quad (i = 1,\ldots,N) \quad \Longleftrightarrow \quad C\, V = V\, \Lambda\, , \quad \Lambda = \texttt{diagonal(eval)}\, .
+  \end{align}
+\end{itemize}
+Depending on the type of \argname{C} and the optional argument \argname{mtype}, \procname{eigenvectors} calls:
+\begin{itemize}
+  \item \texttt{zgeev('N','V',...)} for a general \typename{complex(8)} matrix (default \texttt{mtype='ZG'}).
+  \item \texttt{zheev('V','U',...)} for a Hermitian \typename{complex(8)} matrix (\texttt{mtype='ZH'}), yielding an unitary eigenvector matrix $V$ ($V^\dagger V = I$).
+  \item \texttt{dgeev('N','V',...)} for a general \typename{real(8)} matrix (default \texttt{mtype='DG'}). When \texttt{dgeev} encounters a complex-conjugate eigenvalue pair $\lambda_j = \lambda_{j+1}^*$ with $\Im(\lambda_j) > 0$, \procname{eigenvectors} automatically reconstructs the complex right eigenvectors from the real and imaginary parts stored in columns $j$ and $j+1$ of \texttt{VR}:
+  \begin{align}
+    v_j = \texttt{VR}(:,j) + i\,\texttt{VR}(:,j+1)\, , \qquad v_{j+1} = \texttt{VR}(:,j) - i\,\texttt{VR}(:,j+1)\, .
+  \end{align}
+  \item \texttt{dsyev('V','U',...)} for a real symmetric \typename{real(8)} matrix (\texttt{mtype='DS'}), yielding real eigenvalues and an orthogonal real eigenvector matrix $V$ ($V^T V = I$). Because Fortran converts \typename{complex(8)} to \typename{real(8)} on assignment by taking the real part, the returned array can be assigned directly to a \typename{real(8)} array \texttt{V(n,n+1)} when \argname{C} is real symmetric.
+\end{itemize}
+
+When the optional argument \argname{sortby} is supplied (\texttt{'RF'}, \texttt{'RR'}, \texttt{'IF'}, \texttt{'IR'}, \texttt{'MF'}, or \texttt{'MR'}), \procname{eigenvectors} sorts the eigenvalues using \texttt{sort(eigenval, P=pos, by=sortby)} and reorders the columns of the eigenvector matrix using the permutation array \texttt{pos} so that column \texttt{evec(:,i)} always corresponds to eigenvalue \texttt{eval(i)}.
+
+As for \procname{eigenvalues}, non-square input or a \texttt{LAPACK} convergence failure (\texttt{INFO > 0}) does not abort: the whole $N\times(N+1)$ result (with $N = \texttt{size(C,1)}$) is filled with \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{C}{complex(8) or real(8), dimension(:,:), contiguous, intent(in)}{Input $N\times N$ square matrix.}
+  \argitem{mtype}{character(*), optional, intent(in)}{Matrix symmetry type: \texttt{'ZH'} for complex Hermitian, \texttt{'DS'} for real symmetric, or \texttt{'ZG'}/\texttt{'DG'} (default) for general matrices.}
+  \argitem{sortby}{character(*), optional, intent(in)}{Two-character sorting specification (\texttt{'RF'}, \texttt{'RR'}, \texttt{'IF'}, \texttt{'IR'}, \texttt{'MF'}, \texttt{'MR'}) applied simultaneously to eigenvalues and eigenvector columns.}
+  \argitem{evs}{complex(8), dimension(:,:), allocatable, return value}{Allocated $N\times(N+1)$ matrix where \texttt{evs(:,1)} holds the eigenvalues and \texttt{evs(:,2:N+1)} holds the corresponding right eigenvectors.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use array_mod
+integer, parameter      :: n = 8
+complex(8)              :: A(n,n), eval(n), evec(n,n), W(n,n+1), L(n,n)
+real   (8)              :: B(n,n), deval(n), devec(n,n), V(n,n+1)
+integer                 :: i
+
+call random_number(A, sigma=1.0_8)
+call random_number(B, sigma=1.0_8)
+
+! 1. General complex matrix A, sorted ascending by real part:
+W    = eigenvectors(A, sortby='RF')
+eval = W(:, 1 )
+evec = W(:, 2:)
+
+! Check A . v_i = lambda_i v_i and A . V = V . Lambda:
+L = diagonal(eval)
+print *, 'Max residual:', norm(lmatmul(A, evec) - lmatmul(evec, L))
+
+! 2. Real symmetric matrix B, sorted descending by real part:
+call symmetric_set(B)
+V     = eigenvectors(B, mtype='DS', sortby='RR')
+deval = V(:, 1 )
+devec = V(:, 2:)
+print *, 'Real sym residual:', &
+         norm([(norm(matmul(B, devec(:,i)) - deval(i)*devec(:,i)), i=1,n)])
+\end{lstlisting}

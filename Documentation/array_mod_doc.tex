@@ -1,0 +1,112 @@
+\documentclass[a4paper,11pt]{article}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[a4paper, total={6.5in, 9.8in}]{geometry}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{makeidx}
+\usepackage{fontspec}
+\usepackage{xunicode}
+\usepackage{xltxtra}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{morefloats}
+\usepackage[yyyymmdd]{datetime}
+\usepackage{appendix}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage{hyperref}
+\hypersetup{
+  pdftitle={Array Module Documentation (array\textunderscore mod)},
+  pdfauthor={Konstantinos N. Anagnostopoulos},
+  colorlinks=true,
+  linkcolor=blue!70!black,
+  filecolor=magenta,
+  citecolor=blue!70!black,
+  anchorcolor=blue!70!black,
+  urlcolor=blue!70!black,
+  bookmarksopen=true,
+  bookmarksdepth=3
+}
+\urlstyle{same}
+\setlength{\marginparwidth}{2cm}
+\emergencystretch=1.5em
+
+\setmainfont[Mapping=tex-text]{GFS Didot}
+
+% Load user's LaTeX macros and listings configuration from Documentation/array_mod_doc/mymacros.tex
+\input{array_mod_doc/mymacros}
+
+% Load custom documentation box and man-page styling macros
+\input{array_mod_doc/doc_style}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+\title{%
+  \vspace{-1.2cm}%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=modPrimary,
+    colframe=modPrimary!80!black,
+    coltext=white,
+    arc=2mm,
+    boxrule=1pt,
+    top=12pt, bottom=12pt, left=12pt, right=12pt
+  ]
+  \centering
+  {\LARGE\bfseries Array Module Documentation}\\[6pt]
+  {\large Extended Reference Manual for the Fortran \texttt{array\_mod}, \texttt{tensorprod\_mod}, and \texttt{timer\_mod} Modules}
+  \end{tcolorbox}%
+  \vspace{-0.4cm}%
+}
+\author{\textbf{Konstantinos N. Anagnostopoulos}\\
+  {\small Physics Department, National Technical University of Athens}\\
+  {\small \texttt{konstant@mail.ntua.gr} $\cdot$ \url{https://www.physics.ntua.gr/konstant}}}
+\date{\small \today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+This document provides the complete reference manual for the public procedures and interfaces of the Fortran \modname{array\_mod} module (and its companion modules \modname{tensorprod\_mod} and \modname{timer\_mod}) in the \texttt{Matrix} library (\filename{Software/Tools/Matrix/}). Built on top of \texttt{BLAS}, \texttt{LAPACK}, and \texttt{PFAPACK}, \modname{array\_mod} offers high-performance, ergonomic Fortran interfaces for double-precision real (\typename{real(8)}) and complex (\typename{complex(8)}) linear algebra, including traces, matrix symmetries, sorting, Fisher--Yates shuffling, matrix--matrix and matrix--vector multiplication, matrix inversion, determinants, Pfaffians, eigenvalues and right eigenvectors, Kronecker tensor products, Pauli and Dirac $\Gamma$ matrices, uniform and Gaussian random number generation, formatted I/O, Mathematica export, IEEE \texttt{NaN} handling, and execution timing. Every public procedure is documented in Unix man-page style with its name, synopsis, brief summary, detailed mathematical and algorithmic description, dummy arguments, and usage examples.
+\end{abstract}
+
+\vspace{0.3cm}
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  colback=modBoxBg!60,
+  colframe=modPrimary!60,
+  arc=1.5mm,
+  boxrule=0.6pt,
+  left=10pt, right=10pt, top=6pt, bottom=8pt
+]
+\tableofcontents
+\end{tcolorbox}
+\newpage
+
+% Section 1: Usage, Compiling and Linking, Download, Hello World!
+\input{array_mod_doc/sec_intro}
+
+% Section 2: Basic Matrix Operations
+%   2.1 Trace, symmetries, sort, norm
+\input{array_mod_doc/sec_basic}
+%   2.2 Matrix Multiplication
+\input{array_mod_doc/sec_matmul}
+%   2.3 Linear Algebra (Inverse, determinant, Pfaffian; Eigenvalues and eigenvectors)
+\input{array_mod_doc/sec_linalg}
+%   2.4 Tensor Products - Pauli Matrices & 2.5 Random Numbers
+\input{array_mod_doc/sec_tensor_rand}
+%   2.6 Utilities (Saving and printing, Printing arrays, NaN stuff, Timing your program)
+\input{array_mod_doc/sec_util_timer}
+
+% Section 3: File Structure & Section 4: Performance
+\input{array_mod_doc/sec_structure_perf}
+
+\end{document}

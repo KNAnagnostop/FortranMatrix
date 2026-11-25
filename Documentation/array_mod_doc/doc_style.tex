@@ -1,0 +1,103 @@
+% ===================================================================
+% Custom Macros and Styling for array_mod Extended Documentation
+% ===================================================================
+
+% Color Palette
+\definecolor{modPrimary}{RGB}{22, 64, 122}      % Deep Navy Blue
+\definecolor{modSecondary}{RGB}{31, 111, 139}   % Teal / Slate Blue
+\definecolor{modAccent}{RGB}{168, 42, 42}       % Crimson / Burgundy for Procedure Names
+\definecolor{modArg}{RGB}{0, 102, 51}           % Forest Green for Dummy Arguments
+\definecolor{modType}{RGB}{102, 51, 153}        % Royal Purple for Types / Intents
+\definecolor{modBoxBg}{RGB}{244, 247, 251}      % Very Light Ice Blue background
+\definecolor{modBoxFrame}{RGB}{44, 88, 150}     % Medium Navy frame
+\definecolor{modWarnBg}{RGB}{254, 249, 238}     % Warm Amber background
+\definecolor{modWarnFrame}{RGB}{204, 122, 0}    % Amber frame
+\definecolor{modCodeBg}{RGB}{242, 244, 247}     % Clean light slate gray for listings
+\definecolor{modSynBg}{RGB}{236, 241, 248}      % Soft blue-gray for Synopsis blocks
+
+% Enhance default listings appearance while preserving mymacros.tex settings
+\lstset{
+    backgroundcolor=\color{modCodeBg},
+    rulecolor=\color{modBoxFrame!50},
+    frame=single,
+    basicstyle=\footnotesize\ttfamily,
+    keywordstyle=\color[rgb]{0,0,0.75}\bfseries,
+    commentstyle=\color[rgb]{0.13,0.50,0.13}\itshape,
+    stringstyle=\color[rgb]{0.58,0.10,0.75},
+    upquote=true,
+    breaklines=true,
+    columns=fixed,
+    showstringspaces=false
+}
+
+% Typography Macros for Procedures, Arguments, Types, and Files
+\newcommand{\procname}[1]{\textcolor{modAccent}{\texttt{\textbf{#1}}}}
+\newcommand{\argname}[1]{\textcolor{modArg}{\texttt{\textbf{#1}}}}
+\newcommand{\typename}[1]{\textcolor{modType}{\texttt{#1}}}
+\newcommand{\intentname}[1]{\textcolor{modSecondary}{\texttt{#1}}}
+\newcommand{\modname}[1]{\textcolor{modPrimary}{\texttt{\textbf{#1}}}}
+\newcommand{\filename}[1]{\textcolor{modSecondary}{\texttt{#1}}}
+
+% Man-Page Section Label Macro
+\newcommand{\manheading}[1]{%
+  \par\vspace{0.35em}\noindent%
+  {\sffamily\bfseries\footnotesize\textcolor{modPrimary}{\MakeUppercase{#1}}}\par\vspace{0.15em}\noindent%
+}
+
+% Colored Informational & Warning Boxes
+\newtcolorbox{notebox}[1][Note]{
+  enhanced,
+  breakable,
+  colback=modBoxBg,
+  colframe=modBoxFrame,
+  coltitle=white,
+  fonttitle=\sffamily\bfseries\small,
+  title={#1},
+  arc=1.5mm,
+  boxrule=0.6pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+
+\newtcolorbox{warnbox}[1][Important]{
+  enhanced,
+  breakable,
+  colback=modWarnBg,
+  colframe=modWarnFrame,
+  coltitle=white,
+  fonttitle=\sffamily\bfseries\small,
+  title={#1},
+  arc=1.5mm,
+  boxrule=0.6pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt
+}
+
+% Man-Page Procedure Entry Header Box & TOC Registration
+% Usage: \manentry{kind}{proc_display_name}{toc_name}{brief_summary}{label_id}
+\newcommand{\manentry}[5]{%
+  \par\vspace{1.2em}%
+  \phantomsection%
+  \label{#5}%
+  \addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{#3}} \textnormal{\footnotesize--- #4}}{#3}}%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=modBoxBg,
+    colframe=modPrimary,
+    boxrule=0.8pt,
+    leftrule=4.5pt,
+    arc=1.5mm,
+    left=8pt, right=8pt, top=6pt, bottom=6pt,
+    before skip=0.5em,
+    after skip=0.4em
+  ]
+  \noindent{\sffamily\bfseries\scriptsize\textcolor{modSecondary}{\MakeUppercase{#1}}}\hfill{\sffamily\scriptsize\textcolor{gray}{array\_mod(3f)}}\\[2pt]
+  {\large\procname{#2}} \quad {\normalsize --- \textbf{#4}}
+  \end{tcolorbox}%
+  \noindent\textbf{\sffamily\footnotesize\textcolor{modPrimary}{NAME}}\par\vspace{0.1em}%
+  \noindent\hspace{1.2em}\procname{#2} --- #4\par%
+}
+
+% Argument Item Macro inside Dummy Arguments list
+% Usage: \argitem{arg_name}{type_and_intent_spec}{description}
+\newcommand{\argitem}[3]{%
+  \item[\argname{#1}] (\typename{#2}): #3%
+}

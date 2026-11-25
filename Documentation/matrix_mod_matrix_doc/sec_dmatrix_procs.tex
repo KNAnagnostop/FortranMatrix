@@ -1,0 +1,593 @@
+% ===================================================================
+% Section 3 (cont.): Class DMatrix - Procedures
+% ===================================================================
+\subsection{Procedures}
+\label{subsec:dmat_procs}
+
+This subsection documents all standalone generic procedures accepting \typename{type(DMatrix)} arguments.
+
+\mansubgroup{Random Numbers}
+
+% ===================================================================
+% random_number (DMatrix)
+% ===================================================================
+\manentry{Generic Subroutine}{random\_number (DMatrix)}{DMatrix: random\textunderscore number}{Overloaded uniform and Gaussian random matrix generator for \texttt{DMatrix}}{dmat:random_number}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call random_number(dmat)          ! uniform random numbers in [0,1)
+call random_number(dmat, sigma)   ! Gaussian random numbers with std dev sigma
+\end{lstlisting}
+
+\manheading{Brief}
+Fills a pre-allocated \typename{type(DMatrix)} with uniform $[0,1)$ or Gaussian random numbers via Fortran's overloaded \procname{random\_number}.
+
+\manheading{Description}
+Dispatches to \procname{dmat \% random()} (single-argument call) or \procname{dmat \% gaussian(sigma=sigma)} (two-argument call; \argname{sigma} is mandatory to disambiguate the interface). If \texttt{dmat \% mtype = 'DS'}, symmetry is enforced automatically while preserving the uniform distribution or target Gaussian variance $\sigma^2$. Aborts via \texttt{matrix\_error} if \texttt{dmat \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Pre-allocated real matrix.}
+  \argitem{sigma}{real(8)}{Target Gaussian standard deviation (mandatory when calling the Gaussian form).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: dmat
+
+call matrix_random_init
+dmat = DMatrix(8, mtype='DS')
+call random_number(dmat)              ! uniform symmetric
+call random_number(dmat, sigma=1.0_8) ! Gaussian symmetric
+\end{lstlisting}
+
+\mansubgroup{Matrix Operations}
+
+% ===================================================================
+% trace, trace2, trace2c (DMatrix)
+% ===================================================================
+\manentry{Pure Generic Functions}{trace, trace2, trace2c (DMatrix)}{DMatrix: trace, trace2, trace2c}{Compute $\Tr D$, $\Tr(D^2)$, and connected quadratic trace $\Tr(\tilde{D}^2)$}{dmat:traces}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: trace2}}}{DMatrix: trace2}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: trace2c}}}{DMatrix: trace2c}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = trace  (d1)   ! sum_i  d1 % v_ii
+r = trace2 (d1)   ! sum_ij d1 % v_ij * d1 % v_ji (faster if mtype='DS')
+r = trace2c(d1)   ! quadratic trace of traceless part d1 - (Tr d1 / N) I
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate scalar traces of a square \typename{type(DMatrix)} \argname{d1} as \typename{real(8)} values, using unit-stride $O(N^2)$ formulas automatically when \texttt{d1 \% mtype = 'DS'}.
+
+\manheading{Description}
+All three functions are \texttt{pure} and wrap \modname{matrix\_mod\_array}'s real trace functions:
+\begin{itemize}
+  \item \procname{trace(d1)}: Computes $\sum_{i=1}^N D_{ii}$.
+  \item \procname{trace2(d1)}: Calls \texttt{trace2(d1 \% v, mtype = d1 \% mtype)}. When \texttt{d1 \% mtype = 'DS'}, evaluates $\sum_{i,j} D_{ij}^2$ directly with contiguous access.
+  \item \procname{trace2c(d1)}: Calls \texttt{trace2c(d1 \% v, mtype = d1 \% mtype)}, returning $\Tr\!\left[(D - \frac{\Tr D}{N} I_N)^2\right]$.
+\end{itemize}
+All three return \procname{NaN} if \argname{d1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Square real matrix.}
+  \argitem{r}{real(8), scalar, return value}{Real trace value (or \procname{NaN} if non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+real(8)       :: t1, t2, tc
+
+d1 = DMatrix('gaussian', 8, mtype='DS')
+t1 = trace  (d1)
+t2 = trace2 (d1)
+tc = trace2c(d1)
+\end{lstlisting}
+
+% ===================================================================
+% norm (DMatrix)
+% ===================================================================
+\manentry{Generic Function}{norm (DMatrix)}{DMatrix: norm}{Computes the normalized $L_1$ norm $\frac{1}{MN}\sum_{i,j}|D_{ij}|$}{dmat:norm}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = norm(d1)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns the mean element-wise absolute value \texttt{SUM(ABS(d1 \% v)) / SIZE(d1 \% v)} as a \typename{real(8)} scalar.
+
+\manheading{Description}
+Calls \texttt{array2\_norm\_d(d1 \% v)}, giving a dimension-normalized magnitude convenient for convergence and symmetry residual checks.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Allocated real matrix.}
+  \argitem{r}{real(8), scalar, return value}{Mean absolute element value $\ge 0$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+
+d1 = DMatrix('gaussian', 8)
+print *, 'Norm(d1):', norm(d1)
+\end{lstlisting}
+
+% ===================================================================
+% transpose and symmetric (DMatrix)
+% ===================================================================
+\manentry{Generic Functions}{transpose, symmetric (DMatrix)}{DMatrix: transpose, symmetric}{Return the transpose $D^T$ as a new \texttt{DMatrix}}{dmat:transpose}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: symmetric}}}{DMatrix: symmetric}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = transpose(d1)
+d2 = symmetric(d1)   ! identical alias returning transpose(d1 % v)
+\end{lstlisting}
+
+\manheading{Brief}
+Functional equivalents of \procname{d1 \% transpose()} and \procname{d1 \% symmetric()}, returning $D^T$ with swapped dimensions and bounds.
+
+\manheading{Description}
+Both \procname{transpose(d1)} and \procname{symmetric(d1)} invoke \texttt{matrix\_return\_transpose\_d}, allocating an $n \times m$ \typename{DMatrix} with bounds \texttt{js:je, is:ie}, preserving \texttt{mtype} and \texttt{name}. Remember that \procname{symmetric(d1)} returns $D^T$ rather than symmetrizing \argname{d1} (use \procname{symmetric\_set} for in-place symmetrization).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Input $m \times n$ real matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Transposed $n \times m$ \typename{DMatrix}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('uniform', 3, 5)
+d2 = transpose(d1)   ! 5x3 matrix
+\end{lstlisting}
+
+% ===================================================================
+% traceless and traceless_set (DMatrix)
+% ===================================================================
+\manentry{Pure Generic Function / Subroutine}{traceless, traceless\_set (DMatrix)}{DMatrix: traceless, traceless\textunderscore set}{Returns or sets in-place the traceless part $D - \frac{1}{N}(\Tr D) I_N$}{dmat:traceless}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: traceless\textunderscore set}}}{DMatrix: traceless\textunderscore set}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = traceless(d1)     ! pure function returning traceless copy of d1
+call traceless_set(d1) ! pure subroutine making d1 traceless in-place
+\end{lstlisting}
+
+\manheading{Brief}
+Subtract $\frac{1}{N}(\Tr D)\, I_N$ from the diagonal of a square \typename{DMatrix}, either returning a new copy (\procname{traceless}) or modifying \argname{d1} in-place (\procname{traceless\_set}).
+
+\manheading{Description}
+Both procedures preserve \texttt{d1 \% mtype} and \texttt{d1 \% name} and fill the data array with \procname{NaN} if \argname{d1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in) or intent(inout)}{Input real matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Traceless \typename{DMatrix} copy (for \procname{traceless}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('gaussian', 6, mtype='DS')
+d2 = traceless(d1)
+call traceless_set(d1)
+\end{lstlisting}
+
+% ===================================================================
+% symmetric_set and antisymmetric_set (DMatrix)
+% ===================================================================
+\manentry{Generic Subroutines}{symmetric\_set, antisymmetric\_set (DMatrix)}{DMatrix: symmetric\textunderscore set, antisymmetric\textunderscore set}{Make a square \texttt{DMatrix} symmetric or antisymmetric in-place}{dmat:sym_set}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: antisymmetric\textunderscore set}}}{DMatrix: antisymmetric\textunderscore set}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call symmetric_set    (d1, [uplo])   ! sets D = D^T and d1 % mtype = 'DS'
+call antisymmetric_set(d1, [uplo])   ! sets D = -D^T (zeros diagonal)
+\end{lstlisting}
+
+\manheading{Brief}
+Project a square \typename{DMatrix} in-place onto its symmetric ($D = D^T$) or antisymmetric ($D = -D^T$) part.
+
+\manheading{Description}
+If \argname{uplo(1:1)} is \texttt{'U'} or \texttt{'L'}, the corresponding triangle of \texttt{d1 \% v} is copied (or negated, with zeros on the diagonal for \procname{antisymmetric\_set}) to the opposite triangle; otherwise $\frac{1}{2}(D \pm D^T)$ is formed. Both \procname{symmetric\_set} and \procname{antisymmetric\_set} validate allocation and squareness (aborting via \texttt{matrix\_error} on failure), forward to \modname{matrix\_mod\_array}, and update \texttt{d1 \% mtype} to \texttt{'DS'} (symmetric) or \texttt{'DG'} (antisymmetric), respectively.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(inout)}{Square real matrix modified in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{\texttt{'U'}, \texttt{'L'}, or omitted/other (average).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+
+d1 = DMatrix('gaussian', 6)
+call symmetric_set(d1)             ! d1 % mtype becomes 'DS'
+call antisymmetric_set(d1, 'U')    ! keep upper triangle, zero diagonal
+\end{lstlisting}
+
+% ===================================================================
+% isSymmetric and isAntiSymmetric (DMatrix)
+% ===================================================================
+\manentry{Generic Functions}{isSymmetric, isAntiSymmetric (DMatrix)}{DMatrix: isSymmetric, isAntiSymmetric}{Measure deviation of a \texttt{DMatrix} from symmetry or antisymmetry}{dmat:is_sym}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: isAntiSymmetric}}}{DMatrix: isAntiSymmetric}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r = isSymmetric    (d1)   ! norm( d1 - transpose(d1) )
+r = isAntiSymmetric(d1)   ! norm( d1 + transpose(d1) )
+\end{lstlisting}
+
+\manheading{Brief}
+Return a \typename{real(8)} residual norm measuring how far \argname{d1} is from $D = D^T$ or $D = -D^T$.
+
+\manheading{Description}
+Returns $0.0$ (within machine precision) for exact symmetric or skew-symmetric matrices, or \procname{NaN} if \argname{d1} is non-square.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Input square real matrix.}
+  \argitem{r}{real(8), scalar, return value}{Normalized $L_1$ deviation ($\ge 0$, or \procname{NaN} if non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+
+d1 = DMatrix('gaussian', 8)
+call antisymmetric_set(d1)
+print *, 'Antisymmetric residual:', isAntiSymmetric(d1)
+\end{lstlisting}
+
+% ===================================================================
+% diagonal and diagonalMatrix (DMatrix)
+% ===================================================================
+\manentry{Generic Functions}{diagonal, diagonalMatrix (DMatrix)}{DMatrix: diagonal, diagonalMatrix}{Extract real diagonals, construct diagonal \texttt{DMatrix} from \texttt{DVector}, or zero off-diagonals}{dmat:diagonal}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: diagonalMatrix}}}{DMatrix: diagonalMatrix}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+u1 = diagonal      (d1)   ! pure: extract main diagonal into DVector u1
+d2 = diagonal      (u1)   ! construct square diagonal DMatrix from DVector u1
+d2 = diagonalMatrix(d1)   ! keep only main diagonal of d1, zero off-diagonals
+\end{lstlisting}
+
+\manheading{Brief}
+\procname{diagonal} extracts a \typename{DMatrix} diagonal as a \typename{DVector} or builds a diagonal \typename{DMatrix} from a \typename{DVector}; \procname{diagonalMatrix} zeroes off-diagonal elements of an existing \typename{DMatrix}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \lcodef{u1 = diagonal(d1)} (\texttt{pure}): Returns a \typename{DVector} of length \texttt{min(d1 \% m, d1 \% n)} with \texttt{is = d1 \% is} containing the main diagonal entries.
+  \item \lcodef{d2 = diagonal(u1)}: Returns a square \typename{DMatrix} of size \texttt{u1 \% n} with \texttt{is = js = u1 \% is}, \texttt{mtype = 'DG'}, \texttt{name = ''}, and diagonal entries from \argname{u1}.
+  \item \lcodef{d2 = diagonalMatrix(d1)}: Copies \argname{d1}'s metadata (preserving \texttt{mtype}) and zeroes all off-diagonal elements, keeping the $\min(m,n)$ diagonal elements (non-square input does \emph{not} produce \procname{NaN}).
+\end{itemize}
+To convert between \typename{DMatrix} and \typename{Matrix} via real/imaginary components, use \procname{real}, \procname{aimag}, and \procname{mcmplx} (documented in Section~\ref{mat:real_aimag_mcmplx}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT / MATA}{class(DMatrix), intent(in)}{Input real matrix.}
+  \argitem{vec}{class(DVector), intent(in)}{Input real vector for \texttt{diagonal(vec)}.}
+  \argitem{result}{type(DVector) or type(DMatrix), return value}{Extracted diagonal vector or diagonal real matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2, d3
+type(DVector) :: u1
+
+d1 = DMatrix('gaussian', 4, mtype='DS')
+u1 = diagonal(d1)
+d2 = diagonal(u1)          ! d2 % mtype == 'DG'
+d3 = diagonalMatrix(d1)    ! d3 % mtype == 'DS'
+\end{lstlisting}
+
+\mansubgroup{Linear Algebra}
+
+% ===================================================================
+% inverse (DMatrix)
+% ===================================================================
+\manentry{Generic Function}{inverse (DMatrix)}{DMatrix: inverse}{Computes the matrix inverse $D^{-1}$ via \texttt{LAPACK} \texttt{dgetrf}/\texttt{dgetri}}{dmat:inverse}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = inverse(d1)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes and returns the real matrix inverse $D_1^{-1}$ as a new \typename{type(DMatrix)} via \texttt{LAPACK} LU factorization.
+
+\manheading{Description}
+\procname{inverse(d1)} copies all metadata from \argname{d1} to \argname{d2}, allocates \texttt{d2 \% v}, and calls \procname{inverse(d1 \% v)} (\texttt{dgetrf}/\texttt{dgetri}). Singular or non-square inputs yield a \typename{DMatrix} filled with \procname{NaN} (detectable with \lcodef{isNaN(d2)}) without aborting.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Square non-singular real matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Inverse real matrix $D_1^{-1}$ with identical metadata (or \procname{NaN} if singular/non-square).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('gaussian', 8)
+d2 = inverse(d1)
+print *, 'Residual:', norm(d1 * d2 - DMatrix('1', 8))
+\end{lstlisting}
+
+% ===================================================================
+% determinant and lndet (DMatrix)
+% ===================================================================
+\manentry{Generic Functions}{determinant, lndet (DMatrix)}{DMatrix: determinant, lndet}{Compute $\det D$ or $(\ln|\det D|, \operatorname{sgn}(\det D))$ for a square \texttt{DMatrix}}{dmat:det_lndet}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: lndet}}}{DMatrix: lndet}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+r  = determinant(d1)     ! real(8) scalar determinant
+lr = lndet      (d1)     ! real(8) :: lr(2); det = exp(lr(1)) * lr(2)
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate the real determinant $\det D$ (\procname{determinant}) or its overflow-safe logarithmic magnitude and sign (\procname{lndet}) via \texttt{LAPACK} \texttt{dgetrf}.
+
+\manheading{Description}
+\begin{itemize}
+  \item \procname{determinant(d1)}: Returns a \typename{real(8)} scalar (\texttt{0.0\_8} if singular, \texttt{1.0\_8} if $0\times 0$, \procname{NaN} if non-square). Overflows IEEE double precision for $\sigma = 1$ Gaussian matrices (\lcodef{DMatrix('g', N)}) at about $N \approx 300$; use \procname{lndet} for large matrices.
+  \item \procname{lndet(d1)}: Returns a 2-element \typename{real(8)} array \texttt{lr(2)} where \texttt{lr(1) = ln|det D|} and \texttt{lr(2) = +1.0\_8} or \texttt{-1.0\_8} (or \texttt{lr(1) = }$-\infty$, \texttt{lr(2) = 0.0\_8} when singular), so that $\det D = \exp(\texttt{lr(1)}) \times \texttt{lr(2)}$ without overflow.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Square real matrix.}
+  \argitem{z}{real(8) or real(8)(2), return value}{Scalar determinant (\procname{determinant}) or \texttt{[ln|det D|, sign(det D)]} (\procname{lndet}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+real(8)       :: r, lr(2)
+
+d1 = DMatrix('gaussian', 32)
+r  = determinant(d1)
+lr = lndet(d1)          ! exp(lr(1)) * lr(2) == r
+\end{lstlisting}
+
+% ===================================================================
+% eigenvalues (DMatrix)
+% ===================================================================
+\manentry{Generic Function}{eigenvalues (DMatrix)}{DMatrix: eigenvalues}{Computes all eigenvalues of a square \texttt{DMatrix}, returning a complex \texttt{Vector}}{dmat:eigenvalues}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+v1 = eigenvalues(d1)   ! v1 is type(Vector)
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the eigenvalues of a square \typename{type(DMatrix)} and returns them as a complex \typename{type(Vector)}, automatically using \texttt{dsyev} when \texttt{d1 \% mtype = 'DS'}.
+
+\manheading{Description}
+Because a general real matrix (\texttt{mtype = 'DG'}) can have complex-conjugate eigenvalue pairs, \procname{eigenvalues(d1)} always returns a complex \typename{type(Vector)} of length \texttt{d1 \% n} with \texttt{is = d1 \% is}. It calls \texttt{eigenvalues(d1 \% v, mtype = d1 \% mtype)}:
+\begin{itemize}
+  \item When \texttt{d1 \% mtype = 'DS'}, \texttt{LAPACK}'s fast symmetric eigensolver \texttt{dsyev} is invoked, yielding real eigenvalues ordered ascending (with zero imaginary parts; extract via \cbox{v1 \% re()} if a \typename{DVector} is desired).
+  \item When \texttt{d1 \% mtype = 'DG'}, \texttt{LAPACK}'s general real eigensolver \texttt{dgeev} is invoked.
+\end{itemize}
+Aborts via \texttt{matrix\_error} if \argname{d1} is non-square (\texttt{d1 \% m /= d1 \% n}), and returns \procname{NaN} if \texttt{LAPACK} fails to converge.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Square real matrix (\texttt{mtype='DS'} uses \texttt{dsyev}).}
+  \argitem{vec}{type(Vector), return value}{Complex \typename{Vector} containing all $N$ eigenvalues.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+type(Vector)  :: v1
+type(DVector) :: u1
+
+d1 = DMatrix('gaussian', 8, mtype='DS')
+v1 = eigenvalues(d1)   ! fast dsyev path
+u1 = v1 % re()         ! real DVector of eigenvalues
+\end{lstlisting}
+
+% ===================================================================
+% eigenvectors (DMatrix)
+% ===================================================================
+\manentry{Generic Function}{eigenvectors (DMatrix)}{DMatrix: eigenvectors}{Computes eigenvalues (\texttt{Vector}) and right eigenvectors (\texttt{Matrix}) of a \texttt{DMatrix}}{dmat:eigenvectors}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = eigenvectors(d1, v2)   ! m2 is type(Matrix), v2 is type(Vector)
+m1 = diagonal(v2)           ! d1 * m2 == m2 * m1
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the complex eigenvalues \argname{v2} (\typename{Vector}) and normalized right eigenvectors \argname{m2} (\typename{Matrix}) of a square \typename{DMatrix} \argname{d1}.
+
+\manheading{Description}
+Because general real matrices can possess complex eigenvalues and eigenvectors, \procname{eigenvectors(d1, v2)} returns a \typename{type(Matrix)} \argname{m2} (with \texttt{m2 \% mtype = 'ZG'} and bounds/name copied via \procname{metadata\_copy}) whose $j$-th column is the right eigenvector corresponding to \texttt{v2 \% v(j)}. If \texttt{v2 \% n /= d1 \% n}, \argname{v2} is allocated automatically via \cbox{Vector(d1 \% n, is=d1 \% is)}. The eigen-equation satisfies:
+\begin{align}
+  D_1 M_2 = M_2 \Lambda\, , \qquad \Lambda = \texttt{diagonal}(v_2)\, .
+\end{align}
+
+\begin{notebox}[Ordering, Non-Square Check, and Symmetric \texttt{dsyev} Dispatch]
+\begin{enumerate}
+  \item For general real matrices (\texttt{'DG'}), always use \argname{m2} together with the vector \argname{v2} returned by the same \procname{eigenvectors} call, since \texttt{eigenvalues(d1)} may return eigenvalues in a different order.
+  \item When \texttt{d1 \% mtype = 'DS'}, \procname{eigenvectors} forwards \texttt{mtype = 'DS'} to \modname{matrix\_mod\_array}, dispatching to \texttt{LAPACK} \texttt{dsyev} (reading only the upper triangle) and returning real ascending eigenvalues matching \texttt{eigenvalues(d1)} along with orthonormal eigenvectors.
+  \item Non-square inputs (\texttt{d1 \% m /= d1 \% n}) abort via \texttt{matrix\_error}.
+\end{enumerate}
+\end{notebox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(DMatrix), intent(in)}{Square $N \times N$ real matrix.}
+  \argitem{vec}{type(Vector), intent(inout)}{Complex eigenvalue vector (auto-constructed if \texttt{vec \% n /= N}).}
+  \argitem{MATB}{type(Matrix), return value}{Complex matrix (\texttt{mtype = 'ZG'}) holding right eigenvector columns.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1
+type(Matrix)  :: m1, m2
+type(Vector)  :: v2
+
+d1 = DMatrix('gaussian', 8)
+m2 = eigenvectors(d1, v2)
+m1 = diagonal(v2)
+print *, 'Residual:', norm(d1 * m2 - m2 * m1)
+\end{lstlisting}
+
+\mansubgroup{Math Functions}
+
+% ===================================================================
+% abs, sin, cos, exp, log, sqrt (DMatrix)
+% ===================================================================
+\manentry{Pure Generic Functions}{abs, sin, cos, exp, log, sqrt (DMatrix)}{DMatrix: abs, sin, cos, exp, log, sqrt}{Element-wise real mathematical functions on \texttt{DMatrix}}{dmat:math_funcs}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: sin}}}{DMatrix: sin}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: cos}}}{DMatrix: cos}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: exp}}}{DMatrix: exp}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: log}}}{DMatrix: log}}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{DMatrix: sqrt}}}{DMatrix: sqrt}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d2 = abs(d1);  d2 = sin(d1);  d2 = cos(d1);  d2 = exp(d1)
+d2 = log(d1);  d2 = sqrt(d1)   ! log: 0 -> -Inf, <0 -> NaN;  sqrt: <0 -> NaN
+\end{lstlisting}
+
+\manheading{Brief}
+Evaluate $|x|$, $\sin x$, $\cos x$, $\e{x}$, $\ln x$, and $\sqrt{x}$ element-by-element on \texttt{d1 \% v}, returning a new \typename{type(DMatrix)} with identical metadata.
+
+\manheading{Description}
+All six functions are \texttt{pure} and copy all metadata---including \texttt{d1 \% mtype} (\texttt{'DG'} or \texttt{'DS'})---to the returned \typename{DMatrix}. Negative entries give IEEE \texttt{NaN} in \procname{log} and \procname{sqrt} (detectable with \procname{isNaN}). A zero entry gives $-\infty$ in \procname{log}, which \procname{isNaN} does \emph{not} detect; test for such entries with \texttt{any(.not.\ ieee\_is\_finite(d2 \% v))} (module \texttt{ieee\_arithmetic}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Input real matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Allocated \typename{DMatrix} preserving \texttt{MAT \% mtype}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix('uniform', 4, mtype='DS') + 0.5_8
+d2 = log(d1) + sqrt(d1)   ! d2 % mtype == 'DS'
+\end{lstlisting}
+
+\mansubgroup{Misc Procedures}
+
+% ===================================================================
+% metadata_copy (DMatrix)
+% ===================================================================
+\manentry{Pure Generic Subroutine}{metadata\_copy (DMatrix)}{DMatrix: metadata\textunderscore copy}{Copies metadata between \texttt{DMatrix} and \texttt{Matrix} objects without copying data}{dmat:metadata_copy}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call metadata_copy(src, dst)
+\end{lstlisting}
+
+\manheading{Brief}
+Copies \texttt{m, n, is, ie, js, je, mtype, name} between any combination of \typename{DMatrix} and \typename{Matrix} objects without allocating \texttt{dst \% v}.
+
+\manheading{Description}
+When copying from \typename{Matrix} to \typename{DMatrix}, \texttt{dst \% mtype} is converted from \texttt{'Z*'} to \texttt{'DG'}; when copying from \typename{DMatrix} to \typename{Matrix}, \texttt{'D*'} becomes \texttt{'ZG'}; same-type copies preserve \texttt{mtype} verbatim.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(MatrixClass), intent(in)}{Source \typename{DMatrix} or \typename{Matrix}.}
+  \argitem{MATB}{class(MatrixClass), intent(inout)}{Destination \typename{DMatrix} or \typename{Matrix}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+type(Matrix)  :: m1
+
+d1 = DMatrix(4, is=2, mtype='DS', name='Sym')
+call metadata_copy(d1, d2)   ! d2 % mtype == 'DS'
+call metadata_copy(d1, m1)   ! m1 % mtype == 'ZG'
+\end{lstlisting}
+
+% ===================================================================
+% isNaN (DMatrix)
+% ===================================================================
+\manentry{Generic Function}{isNaN (DMatrix)}{DMatrix: isNaN}{Tests whether any entry of a \texttt{DMatrix} is IEEE \texttt{NaN}}{dmat:isNaN}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+has_nan = isNaN(d1)
+\end{lstlisting}
+
+\manheading{Brief}
+Returns \texttt{.true.} if any element in \texttt{d1 \% v} satisfies \texttt{IEEE\_IS\_NAN}, and \texttt{.false.} otherwise.
+
+\manheading{Description}
+Calls \procname{isNaN(d1 \% v)} from \modname{matrix\_mod\_array}. Use this function after \procname{inverse}, \procname{log}, or \procname{sqrt} to test for singular matrices or invalid domains (note that \procname{log} of a zero entry gives $-\infty$, not \texttt{NaN}, and an overflowing \procname{determinant} gives $\pm\infty$). See Section~\ref{mod:NaN} for generating \procname{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(DMatrix), intent(in)}{Real matrix to test.}
+  \argitem{itis}{logical, scalar, return value}{\texttt{.true.} if at least one entry is \texttt{NaN}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(DMatrix) :: d1, d2
+
+d1 = DMatrix(-1.0_8, 4)
+d2 = sqrt(d1)
+print *, 'Has NaN?', isNaN(d2)   ! prints T
+\end{lstlisting}

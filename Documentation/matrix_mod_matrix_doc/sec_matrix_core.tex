@@ -1,0 +1,853 @@
+% ===================================================================
+% Section 2: Class Matrix (Components, Constructors, Component Procedures, Operators)
+% ===================================================================
+\section{Class \texttt{Matrix}}
+\label{sec:class_matrix}
+
+The \typename{Matrix} derived type provides a structured interface for double-precision complex (\typename{complex(8)}) matrix manipulation. It extends a private base type \texttt{MatrixClass} that holds common matrix dimensions, custom index bounds, symmetry classification, label metadata, and shared I/O and random-filling methods.
+
+% -------------------------------------------------------------------
+\subsection{Components}
+\label{subsec:mat_components}
+
+% ===================================================================
+% type(Matrix)
+% ===================================================================
+\manentry{Derived Type}{type(Matrix)}{Matrix (type)}{Double-precision complex matrix class extending the private \texttt{MatrixClass}}{mat:type}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+type(Matrix) :: mat
+! Access elements and metadata:
+! mat % m, mat % n, mat % is, mat % ie, mat % js, mat % je
+! mat % mtype, mat % name, mat % v(is:ie, js:je)
+\end{lstlisting}
+
+\manheading{Brief}
+Encapsulates an allocatable $m \times n$ \typename{complex(8)} array \texttt{v(is:ie, js:je)} together with dimension, index-bound, symmetry-type, and name metadata.
+
+\manheading{Description}
+An object of type \typename{Matrix} stores an $m \times n$ complex matrix whose row indices span \texttt{is:ie} (\texttt{ie = is + m - 1}) and whose column indices span \texttt{js:je} (\texttt{je = js + n - 1}). The default constructor values initialize \texttt{m = n = is = ie = js = je = 0} and \texttt{mtype = 'GG'}, indicating an uninitialized matrix. Once constructed, \texttt{mtype} is either \texttt{'ZG'} (general double-precision complex matrix) or \texttt{'ZH'} (Hermitian complex matrix, $M^\dagger = M$). Whenever \texttt{mtype = 'ZH'}, routines such as \procname{*}, \procname{mmmult}, \procname{mvmult}, \procname{trace2}, \procname{trace2c}, \procname{eigenvalues}, and \procname{eigenvectors} automatically dispatch to specialized Hermitian \texttt{BLAS}/\texttt{LAPACK} kernels (which read only the upper triangle) or $O(N^2)$ formulas.
+
+The parent type \texttt{MatrixClass} is private to \modname{matrix\_mod\_matrix} and cannot be instantiated directly; all user matrices are declared as \lcodef{type(Matrix)} or \lcodef{class(Matrix)}.
+
+\manheading{Data Components}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{m, n}{integer, default 0}{Number of rows (\texttt{m}) and columns (\texttt{n}) of the matrix; \texttt{m == 0} indicates uninitialized state.}
+  \argitem{is, ie}{integer, default 0}{Lower and upper row index bounds of \texttt{v}, satisfying \texttt{ie = is + m - 1}.}
+  \argitem{js, je}{integer, default 0}{Lower and upper column index bounds of \texttt{v}, satisfying \texttt{je = js + n - 1}.}
+  \argitem{mtype}{character(4), default \texttt{'GG'}}{\texttt{LAPACK}-style symmetry identifier (\texttt{mtype\_len = 4}): \texttt{'ZG'} for general complex matrices, \texttt{'ZH'} for Hermitian matrices, or \texttt{'GG'} when uninitialized.}
+  \argitem{name}{character(20), default \texttt{''}}{User-defined matrix label (\texttt{name\_len = 20}) printed by \procname{\% print}.}
+  \argitem{v(:,:)}{complex(8), allocatable}{Allocated rank-2 complex array storing matrix elements with bounds \texttt{v(is:ie, js:je)}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: mat
+
+mat = Matrix(4, 3, is=0, js=5, name='A')
+print *, mat % m, mat % n               ! 4, 3
+print *, mat % is, mat % ie             ! 0, 3
+print *, mat % js, mat % je             ! 5, 7
+print *, lbound(mat % v), ubound(mat%v) ! 0, 5 and 3, 7
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Constructors}
+\label{subsec:mat_constructors}
+
+% ===================================================================
+% Matrix(...) constructor
+% ===================================================================
+\manentry{Generic Constructor}{Matrix(...)}{Matrix (constructor)}{Constructs and allocates a \texttt{type(Matrix)} object (zero, constant, random, identity, or from 2D array)}{mat:constructor}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+mat = Matrix(m, [n], [is], [js], [mtype], [name])
+mat = Matrix(C,      [is], [js], [mtype], [name])
+mat = Matrix(r, m, [n], [is], [js], [mtype], [name])
+mat = Matrix(c, m, [n], [is], [js], [mtype], [name])
+mat = Matrix(rtype, m, [n], [is], [js], [mtype], [name], [sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Allocates a \typename{type(Matrix)} instance, sets its metadata and index bounds, and initializes \texttt{mat \% v} to zero, a constant scalar, a 2D array \argname{C}, an identity matrix, or uniform/Gaussian random numbers.
+
+\manheading{Description}
+The structure constructor interface \procname{Matrix} overloads five construction forms, all sharing common metadata defaults set by the internal helper \texttt{matrix\_metadata\_put}:
+\begin{enumerate}
+  \item \textbf{Zero Matrix \texttt{Matrix(m, ... )}}: Allocates an $m \times n$ matrix filled with \texttt{(0.0\_8, 0.0\_8)}. Only \argname{m} is required; defaults are:
+  \begin{itemize}
+    \item \texttt{n = m}, \texttt{is = 1}, \texttt{js = 1}, \texttt{ie = m}, \texttt{je = n}, \texttt{mtype = 'ZG'}, \texttt{name = ''}.
+    \item If \argname{is} is supplied without \argname{js}, then \texttt{js} automatically defaults to \argname{is} (\texttt{js = is}, \texttt{je = is + n - 1}).
+    \item If \argname{js} is supplied, only column bounds change (\texttt{js = js}, \texttt{je = js + n - 1}), leaving \texttt{is, ie} unaffected.
+    \item Passing $m \le 0$, $n \le 0$, an unrecognized \argname{mtype} (only \texttt{'ZG'} and \texttt{'ZH'} are valid), or \texttt{mtype = 'ZH'} with $m \neq n$ aborts via \texttt{matrix\_error}.
+  \end{itemize}
+  \item \textbf{From 2D Array \texttt{Matrix(C, ... )}}: Initializes \texttt{mat \% v} from an assumed-shape \typename{complex(8)} array \argname{C(:,:)} with $m = \texttt{size(C,1)}$ and $n = \texttt{size(C,2)}$. Because \argname{C} is passed as assumed-shape without \texttt{allocatable}, Fortran resets lower bounds to \texttt{is = js = 1} unless \texttt{is=lbound(C,1)} and \texttt{js=lbound(C,2)} are passed explicitly. If \texttt{mtype = 'ZH'}, \cbox{call mat \% hermitian\_set} is invoked automatically without checking whether \argname{C} was already Hermitian.
+  \item \textbf{Real Scalar Fill \texttt{Matrix(r, m, ... )}}: Constructs the $m \times n$ matrix and sets all entries to \typename{real(8)} scalar \argname{r}. Note that the scalar argument precedes the dimension \argname{m}.
+  \item \textbf{Complex Scalar Fill \texttt{Matrix(c, m, ... )}}: Constructs the $m \times n$ matrix and sets \texttt{mat \% v = c}. If \texttt{mtype = 'ZH'}, \cbox{call mat \% hermitian\_set} is called afterwards. A constant matrix with entries $c$ is Hermitian only if $c$ is real, and the averaging $\frac{1}{2}(M + M^\dagger)$ replaces every entry (diagonal and off-diagonal) by $\frac{1}{2}(c + c^*) = \Re(c)$, so the result is the real matrix \texttt{mat \% v = REAL(c, kind=8)}.
+  \item \textbf{Random or Identity Matrix \texttt{Matrix(rtype, m, ... )}}: Dispatches on the first character \argname{rtype(1:1)}:
+  \begin{itemize}
+    \item \texttt{'r'}, \texttt{'R'}, \texttt{'u'}, or \texttt{'U'}: Fills with uniform random complex numbers in $[0,1) + i[0,1)$ via \procname{mat \% random}. If \texttt{mtype = 'ZH'}, the lower triangle is conjugated into the upper triangle (so upper-triangle imaginary parts are negative and all entries remain uniformly distributed).
+    \item \texttt{'g'} or \texttt{'G'}: Fills with Gaussian random complex numbers of standard deviation \argname{sigma} (default \texttt{1.0\_8}) via \procname{mat \% gaussian}. If \texttt{mtype = 'ZH'}, variance is preserved by scaling off-diagonals and the diagonal properly.
+    \item \texttt{'1'}: Constructs the $m \times m$ complex identity matrix (aborts via \texttt{matrix\_error} if $m \neq n$).
+    \item Passing an empty string (\texttt{len(rtype) < 1}) or any other leading character aborts via \texttt{matrix\_error}.
+  \end{itemize}
+\end{enumerate}
+
+\begin{warnbox}[Performance Tip for Array Construction]
+As noted in \filename{matrix\_mod\_matrix\_matrix.f90}, repeated calls to \lcodef{mat = Matrix(C, ...)} inside tight loops allocate and copy an extra temporary \typename{Matrix}. When \texttt{mat} already has the right size, prefer constructing it once (\lcodef{mat = Matrix(m, n)}) and assigning \lcodef{mat = C} or \cbox{mat \% v = C} in-place.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{m}{integer, intent(in)}{Number of rows ($m > 0$). Required in all forms except array construction \texttt{Matrix(C,...)}.}
+  \argitem{n}{integer, optional, intent(in)}{Number of columns ($n > 0$; defaults to \argname{m}). Must equal \argname{m} if \texttt{mtype='ZH'} or \texttt{rtype='1'}.}
+  \argitem{is, js}{integer, optional, intent(in)}{Starting row and column indices (\texttt{is} defaults to \texttt{1}; \texttt{js} defaults to \texttt{is}).}
+  \argitem{mtype}{character(*), optional, intent(in)}{Symmetry tag: \texttt{'ZG'} (default) or \texttt{'ZH'} (Hermitian; requires $m = n$).}
+  \argitem{name}{character(*), optional, intent(in)}{Optional matrix name (up to 20 characters; defaults to \texttt{''}).}
+  \argitem{C}{complex(8), dimension(:,:), intent(in)}{Source 2D complex array for \texttt{Matrix(C, ...)}.}
+  \argitem{r / c}{real(8) / complex(8), intent(in)}{Constant fill value (passed as the first argument before \argname{m}).}
+  \argitem{rtype}{character(*), intent(in)}{Generator type: \texttt{'uniform'}/\texttt{'random'} (\texttt{'u'}/\texttt{'r'}), \texttt{'gaussian'} (\texttt{'g'}), or identity (\texttt{'1'}).}
+  \argitem{sigma}{real(8), optional, intent(in)}{Standard deviation for \texttt{'gaussian'} matrices (defaults to \texttt{1.0\_8}).}
+  \argitem{MAT}{type(Matrix), return value}{Newly constructed and allocated \typename{Matrix} object.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+complex(8)   :: A(0:3, 0:3) = (1.0_8, 2.0_8)
+type(Matrix) :: m0, m1, m2, m3, m4
+
+m0 = Matrix(4)                                  ! 4x4 zero matrix, mtype='ZG'
+m1 = Matrix(4, 3, js=5, name='Rect')            ! 4x3 zeros, v(1:4, 5:7)
+m2 = Matrix(A, is=lbound(A,1), js=lbound(A,2), &
+            mtype='ZH', name='HermArr')  ! preserves bounds, Hermitianizes
+m3 = Matrix('uniform', 4, mtype='ZH')           ! 4x4 random Hermitian matrix
+m4 = Matrix('1', 4)                             ! 4x4 complex identity matrix
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Component Procedures}
+\label{subsec:mat_comp_procs}
+
+All objects of \typename{type(Matrix)} inherit five type-bound procedures from \texttt{MatrixClass} (\procname{save}, \procname{read}, \procname{print}, \procname{random}, \procname{gaussian}) and define eight additional \typename{Matrix}-specific type-bound generics (\procname{hermitian\_set}, \procname{traceless\_set}, \procname{conjg}, \procname{transpose}, \procname{hermitian}, \procname{dagger}, \procname{re}, \procname{im}).
+
+% ===================================================================
+% MAT % save
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% save}{Matrix \% save}{Writes matrix elements in plain text column-major format to a Fortran unit}{mat:save}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % save([unit], [fmt])
+\end{lstlisting}
+
+\manheading{Brief}
+Writes all raw complex entries of \texttt{mat \% v} (without headers or metadata) to \argname{unit} in column-major order.
+
+\manheading{Description}
+If \texttt{mat \% v} is allocated, \procname{mat \% save} loops in \emph{column-major} order (\texttt{do j = js, je; do i = is, ie}) and writes each \typename{complex(8)} entry \texttt{mat \% v(i,j)} using the format descriptor \texttt{'(2'//fmt//')'}. If \texttt{mat \% v} is not allocated, it returns silently without error. Output matches \procname{mat \% read} in loop order.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Passed-object matrix whose data are saved.}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran I/O unit number (defaults to \procname{f\_mout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Single-real Fortran edit descriptor (defaults to \texttt{'G28.17'}; doubled via \texttt{2} for complex numbers).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1
+integer      :: un
+
+m1 = Matrix('gaussian', 4)
+open(newunit=un, file='matrix.dat', status='replace')
+call m1 % save(unit=un, fmt='ES24.15E3')
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% MAT % read
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% read}{Matrix \% read}{Reads matrix elements in plain text column-major order from a Fortran unit}{mat:read}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % read([unit])
+\end{lstlisting}
+
+\manheading{Brief}
+Reads raw complex entries from \argname{unit} into an already-constructed \texttt{mat \% v} in column-major order.
+
+\manheading{Description}
+\procname{mat \% read} reads real/imaginary pairs \texttt{(x, y)} using list-directed I/O (\texttt{read(un,*) x, y}) in column-major order (\texttt{do j = js, je; do i = is, ie}) and assigns \texttt{CMPLX(x, y, kind=dp)} to \texttt{mat \% v(i,j)}. The matrix must already be constructed and allocated before calling \procname{\% read}; if \texttt{mat \% v} is unallocated, the call returns silently. Because \texttt{f\_minput} is not publicly exported by \modname{matrix\_mod\_matrix}, omitting \argname{unit} reads from standard input (\texttt{stdin}).
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Pre-constructed matrix whose \texttt{v} array receives the values.}
+  \argitem{unit}{integer, optional, intent(in)}{Fortran input unit number (defaults to internal \texttt{f\_minput = stdin}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m2
+integer      :: un
+
+m2 = Matrix(4)
+open(newunit=un, file='matrix.dat', status='old')
+call m2 % read(unit=un)
+close(un)
+\end{lstlisting}
+
+% ===================================================================
+% MAT % print
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% print}{Matrix \% print}{Pretty-prints a matrix, metadata summary, or Mathematica expression}{mat:print}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % print([unit], [fmt], [form], [ips], [ipe], [jps], [jpe])
+\end{lstlisting}
+
+\manheading{Brief}
+Displays a matrix (or a sub-block \texttt{ips:ipe, jps:jpe}) in human-readable table format (\texttt{'Default'}), metadata-only mode (\texttt{'Info'}), or Wolfram Mathematica syntax (\texttt{'Mathematica'}).
+
+\manheading{Description}
+The procedure aborts via \texttt{matrix\_error} when the matrix is not initialized (\texttt{mat \% m == 0}) and, in the \texttt{'Default'} and \texttt{'Mathematica'} forms, when \texttt{mat \% v} is not allocated. It clamps any optional slice bounds \argname{ips, ipe, jps, jpe} inside \texttt{[is,ie]} and \texttt{[js,je]}, and formats output according to \argname{form(1:1)}:
+\begin{itemize}
+  \item \texttt{'d'} or \texttt{'D'} (\textbf{Default}): Writes a delimited header block (\texttt{\#pmstart: ...}) showing dimensions, \texttt{mtype}, and index bounds, prints rows \texttt{is..ie} using format \texttt{(2*n//fmt)}, and closes with \texttt{\#pmend: ]}.
+  \item \texttt{'i'} or \texttt{'I'} (\textbf{Info}): Prints a single \texttt{\#info:} summary line with \texttt{name}, dimensions, \texttt{mtype}, metadata bounds, and actual Fortran array bounds \texttt{lbound/ubound(mat \% v)} (or \texttt{(v not allocated)} when \texttt{mat \% v} is not allocated) without printing elements.
+  \item \texttt{'m'} or \texttt{'M'} (\textbf{Mathematica}): Verifies that \texttt{mat \% v} is allocated and rejects unknown subclasses via \texttt{matrix\_error}, then emits a ready-to-paste Mathematica assignment \texttt{<name> = \{\{...\}\};} wrapping every real/imaginary coefficient in \texttt{Interpreter["Number"]["..."]} so Fortran exponential notation (\texttt{E}/\texttt{D}) parses losslessly. If \texttt{mat \% name} is empty, the variable name defaults to \texttt{m}.
+\end{itemize}
+Passing any other leading character in \argname{form} calls \texttt{matrix\_error}. Unlike vector \procname{\% print}, matrix \procname{\% print} does not take a \argname{name} argument; set \texttt{mat \% name} directly if needed.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Initialized matrix to display.}
+  \argitem{unit}{integer, optional, intent(in)}{Destination Fortran unit (defaults to \procname{f\_mout}).}
+  \argitem{fmt}{character(*), optional, intent(in)}{Single-real numeric format string (defaults to \texttt{'G28.17'}).}
+  \argitem{form}{character(*), optional, intent(in)}{Output mode: \texttt{'Default'} (default), \texttt{'Info'}, or \texttt{'Mathematica'} (case-insensitive first character).}
+  \argitem{ips, ipe}{integer, optional, intent(in)}{Optional starting/ending row bounds for printing a sub-slice.}
+  \argitem{jps, jpe}{integer, optional, intent(in)}{Optional starting/ending column bounds for printing a sub-slice.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+m = Matrix('gaussian', 8, name='H', mtype='ZH')
+call m % print(form='Info')
+call m % print(ips=1, ipe=3, jps=1, jpe=3, fmt='F8.3')
+call m % print(form='Mathematica')
+\end{lstlisting}
+
+% ===================================================================
+% MAT % random
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% random}{Matrix \% random}{Fills a matrix with uniform random complex numbers, respecting \texttt{mtype='ZH'}}{mat:random}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % random()
+\end{lstlisting}
+
+\manheading{Brief}
+Populates an allocated \typename{Matrix} with independent uniform random numbers in $[0,1) + i[0,1)$, preserving Hermiticity when \texttt{mat \% mtype = 'ZH'}.
+
+\manheading{Description}
+\procname{mat \% random} fills \texttt{mat \% v} using \texttt{array2\_random\_set}. If \texttt{mat \% mtype = 'ZH'}, instead of averaging $(M + M^\dagger)/2$ (which would produce a triangular distribution $(X_1+X_2)/2$ on off-diagonals), it makes the diagonal real (\texttt{REAL(mat\%v(j,j))}) and copies \texttt{CONJG(mat\%v(j,i))} from the lower triangle into the upper triangle. Consequently, every entry retains a true uniform distribution, and the upper triangle has \emph{negative} imaginary parts in $(-1,0]$. Aborts via \texttt{matrix\_error} if \texttt{mat \% v} is not allocated. Equivalent to \lcodef{call random_number(mat)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Pre-allocated matrix to fill with uniform random entries.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+call matrix_random_init
+m = Matrix(4, mtype='ZH')
+call m % random()
+\end{lstlisting}
+
+% ===================================================================
+% MAT % gaussian
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% gaussian}{Matrix \% gaussian}{Fills a matrix with Gaussian random complex numbers, respecting \texttt{mtype='ZH'}}{mat:gaussian}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % gaussian([sigma])
+\end{lstlisting}
+
+\manheading{Brief}
+Populates an allocated \typename{Matrix} with zero-mean Gaussian random complex entries of standard deviation \argname{sigma}, Hermitianizing when \texttt{mtype = 'ZH'}.
+
+\manheading{Description}
+Using Box--Muller Gaussian sampling (\texttt{array2\_gauss\_set}), \procname{mat \% gaussian} fills each real and imaginary part with normal random variates of standard deviation \argname{sigma} (default \texttt{1.0\_8}). When \texttt{mat \% mtype = 'ZH'}, \procname{mat \% gaussian} generates entries with standard deviation $s = \sigma \sqrt{2}$ and invokes \cbox{call mat \% hermitian\_set}, which replaces $X_{ij}$ by $\frac{1}{2}(X_{ij} + X_{ji}^*)$. Off the diagonal this averages two independent variates, so the real and imaginary parts end up with standard deviation $s/\sqrt{2} = \sigma$. On the diagonal the two terms are the same variate, so the result is $\Re X_{ii}$ with standard deviation $s = \sigma\sqrt{2}$; the diagonal is therefore rescaled by $1/\sqrt{2}$. All real parts, imaginary parts, and the (real) diagonal then have standard deviation $\sigma$. Aborts if \texttt{mat \% v} is unallocated.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Pre-allocated matrix to overwrite with Gaussian random numbers.}
+  \argitem{sigma}{real(8), optional, intent(in)}{Target standard deviation $\sigma$ (defaults to \texttt{1.0\_8}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+m = Matrix(6, mtype='ZH')
+call m % gaussian(sigma=0.5_8)
+\end{lstlisting}
+
+% ===================================================================
+% MAT % hermitian_set
+% ===================================================================
+\manentry{Type-Bound Subroutine}{MAT \% hermitian\_set}{Matrix \% hermitian\textunderscore set}{Makes a square matrix Hermitian in-place and sets \texttt{mtype = 'ZH'}}{mat:comp_hermitian_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % hermitian_set([uplo])
+\end{lstlisting}
+
+\manheading{Brief}
+Transforms an allocated square \typename{Matrix} into a Hermitian matrix ($M = M^\dagger$) in-place and updates \texttt{mat \% mtype = 'ZH'}.
+
+\manheading{Description}
+\procname{mat \% hermitian\_set} delegates to \procname{hermitian\_set(mat \% v, uplo)}: if \argname{uplo(1:1)} is \texttt{'U'}/\texttt{'u'} (or \texttt{'L'}/\texttt{'l'}), the upper (or lower) triangle is preserved (with diagonal imaginary parts zeroed) and conjugated into the opposite triangle; otherwise (including when \argname{uplo} is omitted), $M \leftarrow \frac{1}{2}(M + M^\dagger)$ is computed. It then sets \texttt{mat \% mtype = 'ZH'}. Unlike the standalone \modname{array\_mod} routine (which writes \texttt{NaN} on non-square inputs), this type-bound method explicitly aborts via \texttt{matrix\_error} if \texttt{mat \% v} is not allocated or if \texttt{mat \% m /= mat \% n}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Allocated square matrix to Hermitianize in-place.}
+  \argitem{uplo}{character(*), optional, intent(in)}{Triangle selector: \texttt{'U'} preserves upper triangle, \texttt{'L'} preserves lower triangle, omitted/other averages $(M+M^\dagger)/2$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+m = Matrix('uniform', 4)
+call m % hermitian_set()          ! average (M + M^dagger)/2, mtype='ZH'
+call m % hermitian_set(uplo='U')  ! mirror upper triangle into lower
+\end{lstlisting}
+
+% ===================================================================
+% MAT % traceless_set
+% ===================================================================
+\manentry{Type-Bound Pure Subroutine}{MAT \% traceless\_set}{Matrix \% traceless\textunderscore set}{Projects a square matrix onto its traceless part in-place}{mat:comp_traceless_set}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mat % traceless_set()
+\end{lstlisting}
+
+\manheading{Brief}
+Subtracts $\frac{1}{N}(\Tr M)\, I_N$ from the diagonal of \texttt{mat \% v} in-place so that $\Tr M = 0$.
+
+\manheading{Description}
+Calling \cbox{call mat \% traceless\_set()} executes \procname{traceless\_set(mat \% v)}, replacing $M \leftarrow M - \frac{\Tr M}{N} I_N$ for an $N\times N$ matrix while preserving \texttt{mat \% mtype} and \texttt{mat \% name}. Note that if $M$ is Hermitian, subtracting a scalar multiple of the identity keeps $M$ Hermitian iff $\Im(\Tr M)=0$ (always true up to rounding error), so \texttt{mtype = 'ZH'} remains valid. Non-square \texttt{mat \% v} causes the underlying \texttt{traceless\_set} to fill \texttt{mat \% v} with \texttt{NaN}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(inout)}{Square matrix modified in-place to have zero trace.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m
+
+m = Matrix('gaussian', 6, mtype='ZH')
+call m % traceless_set()
+print *, 'Trace after projection:', trace(m)
+\end{lstlisting}
+
+% ===================================================================
+% MAT % conjg
+% ===================================================================
+\manentry{Type-Bound Function}{MAT \% conjg}{Matrix \% conjg}{Returns the element-wise complex conjugate $M^*$ as a new \texttt{Matrix}}{mat:comp_conjg}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = m1 % conjg()
+\end{lstlisting}
+
+\manheading{Brief}
+Allocates and returns a \typename{type(Matrix)} containing the complex conjugate $\texttt{CONJG(m1 \% v)}$ with all metadata preserved.
+
+\manheading{Description}
+\procname{m1 \% conjg()} copies all metadata (\texttt{m, n, is, ie, js, je, mtype, name}) from \argname{m1} to the result \argname{m2}, allocates \texttt{m2 \% v(is:ie, js:je)}, and sets \texttt{m2 \% v = CONJG(m1 \% v)}. Because the conjugate of a Hermitian matrix is also Hermitian (and equal to $M^T$), preserving \texttt{mtype} is exact. Equivalent to \lcodef{conjg(m1)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Passed-object input matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Complex conjugate matrix with identical shape, bounds, \texttt{mtype}, and \texttt{name}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('gaussian', 3, name='M1')
+m2 = m1 % conjg()
+\end{lstlisting}
+
+% ===================================================================
+% MAT % transpose
+% ===================================================================
+\manentry{Type-Bound Function}{MAT \% transpose}{Matrix \% transpose}{Returns the transpose $M^T$ as a new \texttt{Matrix}, swapping $m\leftrightarrow n$ and index bounds}{mat:comp_transpose}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = m1 % transpose()
+\end{lstlisting}
+
+\manheading{Brief}
+Returns an $n\times m$ \typename{type(Matrix)} equal to \texttt{TRANSPOSE(m1 \% v)} with row and column bounds swapped.
+
+\manheading{Description}
+For an $m \times n$ matrix with bounds \texttt{is:ie, js:je}, \procname{m1 \% transpose()} constructs an $n \times m$ result \argname{m2} with swapped dimensions and bounds: \texttt{m2 \% m = m1 \% n}, \texttt{m2 \% n = m1 \% m}, \texttt{m2 \% is = m1 \% js}, \texttt{m2 \% js = m1 \% is} (so \texttt{m2 \% v} is allocated over \texttt{m1\%js:m1\%je, m1\%is:m1\%ie}), while preserving \texttt{mtype} and \texttt{name}. Equivalent to \lcodef{transpose(m1)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Passed-object $m \times n$ input matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Transposed $n \times m$ matrix with swapped index ranges.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('uniform', 3, 5, is=0, js=10, name='Rect')
+m2 = m1 % transpose()   ! 5x3 matrix with is=10, js=0
+\end{lstlisting}
+
+% ===================================================================
+% MAT % hermitian and MAT % dagger
+% ===================================================================
+\manentry{Type-Bound Functions}{MAT \% hermitian, MAT \% dagger}{Matrix \% hermitian, Matrix \% dagger}{Return the Hermitian conjugate $M^\dagger$ as a new \texttt{Matrix}}{mat:comp_hermitian}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix \% dagger}} \textnormal{\footnotesize--- Alias for \texttt{Matrix \% hermitian}}}{Matrix \% dagger}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = m1 % hermitian()
+m2 = m1 % dagger()     ! identical alias
+\end{lstlisting}
+
+\manheading{Brief}
+Return the conjugate transpose $M^\dagger = \texttt{TRANSPOSE(CONJG(m1 \% v))}$ as a new \typename{type(Matrix)}, swapping dimensions and row/column index bounds.
+
+\manheading{Description}
+Both \procname{\% hermitian()} and its alias \procname{\% dagger()} map to \texttt{matrix\_return\_hermitian}. They construct an $n \times m$ matrix \argname{m2} with \texttt{m2 \% m = m1 \% n}, \texttt{m2 \% n = m1 \% m}, \texttt{m2 \% is = m1 \% js}, \texttt{m2 \% js = m1 \% is}, preserving \texttt{mtype} and \texttt{name}, and compute \texttt{m2 \% v = TRANSPOSE(CONJG(m1 \% v))}. Equivalent to \lcodef{hermitian(m1)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Passed-object $m \times n$ input matrix.}
+  \argitem{MATB}{type(Matrix), return value}{Hermitian conjugate $n \times m$ matrix $M^\dagger$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, h
+
+m1 = Matrix('gaussian', 3, 5)
+m2 = m1 % dagger()     ! 5x3 conjugate transpose
+h  = m1 * m1 % dagger()
+\end{lstlisting}
+
+% ===================================================================
+% MAT % re and MAT % im
+% ===================================================================
+\manentry{Type-Bound Functions}{MAT \% re, MAT \% im}{Matrix \% re, Matrix \% im}{Extract the real or imaginary part of a \texttt{Matrix} as a \texttt{DMatrix}}{mat:comp_re_im}
+\addcontentsline{toc}{subsubsection}{\texorpdfstring{\texttt{\textbf{Matrix \% im}} \textnormal{\footnotesize--- Imaginary part of a \texttt{Matrix} as a \texttt{DMatrix}}}{Matrix \% im}}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+d_re = m1 % re()
+d_im = m1 % im()
+\end{lstlisting}
+
+\manheading{Brief}
+Return a \typename{type(DMatrix)} containing the real part (\procname{\% re()}) or imaginary part (\procname{\% im()}) of \argname{m1}, preserving shape, index bounds, and \texttt{name}.
+
+\manheading{Description}
+Both methods copy metadata \texttt{(m, n, is, ie, js, je, name)} from \argname{m1} into a new \typename{type(DMatrix)} \argname{d}:
+\begin{itemize}
+  \item \procname{m1 \% re()}: Sets \texttt{d \% v = REAL(m1 \% v, kind=8)}. If \texttt{m1 \% mtype == 'ZH'}, the real part of a Hermitian matrix is real symmetric, so it sets \texttt{d \% mtype = 'DS'}; otherwise \texttt{d \% mtype = 'DG'}.
+  \item \procname{m1 \% im()}: Sets \texttt{d \% v = AIMAG(m1 \% v)} and always sets \texttt{d \% mtype = 'DG'} (since the imaginary part of a Hermitian matrix is antisymmetric rather than symmetric).
+\end{itemize}
+Equivalent to the standalone functions \lcodef{real(m1)} and \lcodef{aimag(m1)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Passed-object complex matrix.}
+  \argitem{MATB}{type(DMatrix), return value}{Real double-precision matrix holding $\Re(\argname{m1})$ or $\Im(\argname{m1})$.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1
+type(DMatrix) :: dre, dim
+
+m1  = Matrix('gaussian', 4, mtype='ZH')
+dre = m1 % re()   ! DMatrix with dre % mtype == 'DS'
+dim = m1 % im()   ! DMatrix with dim % mtype == 'DG'
+\end{lstlisting}
+
+% -------------------------------------------------------------------
+\subsection{Operators}
+\label{subsec:mat_operators}
+
+\modname{matrix\_mod\_matrix} overloads Fortran's assignment (\procname{=}), unary/binary arithmetic (\procname{+}, \procname{-}, \procname{*}, \procname{/}, \procname{**}), and BLAS-backed matrix multiplication (\procname{*}) operators for \typename{Matrix}.
+
+\mansubgroup{Assignment}
+
+% ===================================================================
+% assignment(=) Matrix
+% ===================================================================
+\manentry{Overloaded Operator}{assignment(=) (Matrix)}{Matrix: assignment(=)}{Assigns another matrix, array, or scalar to a \texttt{Matrix}}{mat:op_assign}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+mat = m1     ! type(Matrix)           -> copies metadata and values
+mat = d1     ! type(DMatrix)          -> 'ZH' if 'DS' else 'ZG', keeps name
+mat = C      ! complex(8) :: C(:,:)   -> copies array C into mat % v
+mat = r      ! real(8)    :: r        -> fills pre-allocated mat % v = r
+mat = z      ! complex(8) :: z        -> fills pre-allocated mat % v = z
+\end{lstlisting}
+
+\manheading{Brief}
+Overloads \texttt{=} for assigning a \typename{Matrix}, \typename{DMatrix}, 2D \typename{complex(8)} array, \typename{real(8)} scalar, or \typename{complex(8)} scalar to a \typename{Matrix}.
+
+\manheading{Description}
+Depending on the right-hand side type, \texttt{mat = rhs} behaves as follows:
+\begin{itemize}
+  \item \texttt{mat = m1} (\typename{type(Matrix)}): Intrinsic Fortran~2003 derived-type assignment; copies all metadata (\texttt{m, n, is, ie, js, je, mtype, name}) and automatically allocates or reallocates \texttt{mat \% v} to match \texttt{m1 \% v}, whether or not \argname{mat} was previously constructed.
+  \item \texttt{mat = d1} (\typename{type(DMatrix)}): Initializes \argname{mat} with \texttt{(d1 \% m, d1 \% n, d1 \% is, d1 \% js, mt, name = d1 \% name)}, setting \texttt{mt = 'ZH'} when \texttt{d1 \% mtype = 'DS'} (otherwise \texttt{'ZG'}), preserving \texttt{d1 \% name}, and copying \texttt{CMPLX(d1 \% v, 0.0\_8, kind=8)}.
+  \item \texttt{mat = C} (\typename{complex(8)(:,:)}): If \argname{mat} has not been constructed (\texttt{mat \% m == 0}), initializes \texttt{m, n} from \texttt{shape(C)}, sets bounds to \texttt{lbound(C)..ubound(C)} (which for assumed-shape descriptors is \texttt{1..size}), sets \texttt{mtype = 'ZG'}, \texttt{name = ''}, and copies \argname{C}. If \argname{mat} was already constructed (\texttt{mat \% m /= 0}), checks that \texttt{shape(C) == [mat\%m, mat\%n]} (aborting via \texttt{matrix\_error} if non-conformable), keeps existing \texttt{is, js, name} unchanged, resets \texttt{mat \% mtype = 'ZG'}, and copies \argname{C} into \texttt{mat \% v}.
+  \item \texttt{mat = r} (\typename{real(8)}) and \texttt{mat = z} (\typename{complex(8)}): Require \texttt{mat \% v} to be already allocated (aborting via \texttt{matrix\_error} otherwise) and broadcast the scalar to all elements of \texttt{mat \% v}. For complex \argname{z}, \texttt{mat \% mtype} is reset to \texttt{'ZG'} only when \texttt{AIMAG(z) /= 0.0\_8}; otherwise \texttt{mtype} is preserved.
+\end{itemize}
+
+\begin{warnbox}[Metadata Reset on Array Assignment and Missing \texttt{real(8)(:,:)}]
+\begin{enumerate}
+  \item Assigning a 2D array \lcodef{mat = C} to an already-constructed \typename{Matrix} resets \texttt{mat \% mtype = 'ZG'} (since an arbitrary array is not Hermitian in general); call \cbox{call mat \% hermitian\_set} afterwards if \argname{C} is Hermitian.
+  \item Direct assignment from a 2D \typename{real(8)} array (\texttt{mat = A}) is \emph{not} overloaded; wrap it in \lcodef{DMatrix(A)} or assign \cbox{mat \% v = A} after construction.
+\end{enumerate}
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATB}{type(Matrix), intent(inout)}{Destination matrix on the left-hand side.}
+  \argitem{rhs}{type(Matrix), type(DMatrix), complex(8)(:,:), real(8), or complex(8), intent(in)}{Source value or matrix on the right-hand side.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1, m2
+type(DMatrix) :: d1
+complex(8)    :: C(4,4)
+
+m1 = Matrix(4, is=2, name='Target')
+C  = (1.0_8, 0.5_8)
+m1 = C                    ! keeps m1 % is=2 and m1 % name='Target'
+! m2 = (0.0_8, 0.0_8)     ! would abort: m2 is not constructed yet
+m2 = Matrix(4)            ! construct m2 first, then scalar assignment works
+m2 = 2.5_8                ! sets every element of m2 % v to (2.5, 0.0)
+d1 = DMatrix('gaussian', 4)
+m2 = d1                   ! converts DMatrix to Matrix with mtype='ZG'
+\end{lstlisting}
+
+\mansubgroup{Addition, Subtraction, Scalar Multiplication, Division, and Power}
+
+% ===================================================================
+% operator(+) Matrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(+) (Matrix)}{Matrix: operator(+)}{Adds a \texttt{Matrix} with a scalar, complex 2D array, \texttt{Matrix}, or \texttt{DMatrix}}{mat:op_plus}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = m1 + r;   m2 = r + m1     ! real(8) scalar + Matrix (pure)
+m2 = m1 + z;   m2 = z + m1     ! complex(8) scalar + Matrix (pure)
+m2 = m1 + C;   m2 = C + m1     ! complex(8)(:,:) array + Matrix
+m3 = m1 + m2                   ! Matrix + Matrix
+m3 = m1 + d2;  m3 = d2 + m1    ! mixed Matrix + DMatrix -> Matrix
+\end{lstlisting}
+
+\manheading{Brief}
+Performs element-wise addition (or scalar broadcast addition) returning a new \typename{type(Matrix)} with propagated metadata.
+
+\manheading{Description}
+All nine overloads construct the result by copying the \typename{Matrix} operand's bounds and \texttt{name} (for \texttt{d2 + m1}, metadata are inherited from \argname{m1}), then compute the element-wise sum. Matrix/array operands must have identical shape $(m, n)$, otherwise execution aborts via \texttt{matrix\_error}. The resulting \texttt{mtype} follows these rules:
+\begin{itemize}
+  \item \texttt{m1 + m2}: \texttt{'ZH'} if both \argname{m1} and \argname{m2} have \texttt{mtype = 'ZH'}, otherwise \texttt{'ZG'}.
+  \item \texttt{m1 + d2} and \texttt{d2 + m1}: \texttt{'ZH'} if the \typename{Matrix} is \texttt{'ZH'} and the \typename{DMatrix} is \texttt{'DS'}, otherwise \texttt{'ZG'}.
+  \item \texttt{m1 + C} and \texttt{C + m1}: Always sets \texttt{mtype = 'ZG'}.
+  \item \texttt{m1 + r}, \texttt{r + m1}: Preserve \texttt{m1 \% mtype}. For complex scalar addition \texttt{m1 + z} and \texttt{z + m1}, \texttt{'ZH'} is preserved only when \texttt{AIMAG(z) == 0.0\_8}; adding a complex scalar with nonzero imaginary part resets \texttt{mtype = 'ZG'}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{Matrix, DMatrix, complex(8)(:,:), real(8), or complex(8), intent(in)}{Operands (at least one must be \typename{Matrix}).}
+  \argitem{result}{type(Matrix), return value}{Allocated sum matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1, m2, m3
+type(DMatrix) :: d1
+
+m1 = Matrix('gaussian', 4, mtype='ZH')
+d1 = DMatrix('gaussian', 4, mtype='DS')
+m2 = m1 + 2.0_8
+m3 = m1 + d1      ! Hermitian ('ZH') because both m1 ('ZH') and d1 ('DS')
+\end{lstlisting}
+
+% ===================================================================
+% operator(-) Matrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(-) (Matrix)}{Matrix: operator(-)}{Unary negation and binary subtraction involving a \texttt{Matrix}}{mat:op_minus}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = -m1                       ! unary negation
+m2 = m1 - r;   m2 = r - m1     ! real(8) scalar and Matrix (pure)
+m2 = m1 - z;   m2 = z - m1     ! complex(8) scalar and Matrix (pure)
+m2 = m1 - C;   m2 = C - m1     ! complex(8)(:,:) array and Matrix
+m3 = m1 - m2                   ! Matrix - Matrix
+m3 = m1 - d2;  m3 = d2 - m1    ! mixed Matrix and DMatrix -> Matrix
+\end{lstlisting}
+
+\manheading{Brief}
+Computes unary element-wise negation \texttt{-m1} or binary element-wise difference, returning a new \typename{type(Matrix)}.
+
+\manheading{Description}
+Unary \texttt{-m1} preserves all metadata (including \texttt{'ZH'}) and negates \texttt{v}. Binary \texttt{m1 - m2}, \texttt{m1 - d2}, and \texttt{d2 - m1} enforce shape conformability (calling \texttt{matrix\_error} on mismatch) and preserve \texttt{'ZH'} only when both matrices are Hermitian/symmetric (\texttt{'ZH'}/\texttt{'DS'}); otherwise they set \texttt{mtype = 'ZG'}. Real scalar differences \texttt{m1 - r} and \texttt{r - m1} preserve \texttt{m1 \% mtype}; complex scalar differences \texttt{m1 - z} and \texttt{z - m1} preserve \texttt{'ZH'} iff \texttt{AIMAG(z) == 0.0\_8} and reset \texttt{mtype = 'ZG'} otherwise; and array differences \texttt{m1 - C} and \texttt{C - m1} always reset \texttt{mtype = 'ZG'}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{Matrix, DMatrix, complex(8)(:,:), real(8), or complex(8), intent(in)}{Operands for unary or binary subtraction.}
+  \argitem{result}{type(Matrix), return value}{Allocated difference matrix.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+
+m1 = Matrix('gaussian', 4, mtype='ZH')
+m2 = Matrix('gaussian', 4, mtype='ZH')
+m3 = -m1 - m2     ! result retains mtype='ZH'
+\end{lstlisting}
+
+% ===================================================================
+% Scalar * and / Matrix
+% ===================================================================
+\manentry{Overloaded Operators}{operator(*) (Scalar), operator(/) (Matrix)}{Matrix: scalar * and /}{Scalar multiplication and division for \texttt{Matrix} and complex-scaled \texttt{DMatrix}}{mat:op_scale}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = r * m1;  m2 = m1 * r;  m2 = m1 / r    ! real(8) scaling (pure)
+m2 = z * m1;  m2 = m1 * z;  m2 = m1 / z    ! complex(8) scaling (pure)
+m2 = z * d1;  m2 = d1 * z                  ! z * DMatrix -> Matrix (pure)
+\end{lstlisting}
+
+\manheading{Brief}
+Multiplies or divides every element of a \typename{Matrix} by a real or complex scalar, or promotes a \typename{DMatrix} to a \typename{Matrix} via complex scalar multiplication.
+
+\manheading{Description}
+All eight overloads are \texttt{pure} functions:
+\begin{itemize}
+  \item \texttt{r * m1}, \texttt{m1 * r}, \texttt{m1 / r}: Copy all metadata from \argname{m1} (preserving \texttt{mtype = 'ZH'}, since a real multiple of a Hermitian matrix stays Hermitian) and scale \texttt{m1 \% v}.
+  \item \texttt{z * m1}, \texttt{m1 * z}, \texttt{m1 / z}: Copy metadata from \argname{m1}, scale \texttt{m1 \% v}, and reset \texttt{m2 \% mtype = 'ZG'} whenever \texttt{AIMAG(z) /= 0.0\_8}.
+  \item \texttt{z * d1}, \texttt{d1 * z}: Convert a \typename{DMatrix} \argname{d1} into a \typename{type(Matrix)} \argname{m2} copying dimensions and index bounds from \argname{d1}, setting \texttt{m2 \% mtype = 'ZG'} and \texttt{m2 \% name = d1 \% name}, with fast special-cased paths for $z = i, 1, x, iy$ to avoid unnecessary complex multiplications. This provides an idiomatic way to build \texttt{cmplx(d1, 0)} via \lcodef{(1.0_8, 0.0_8) * d1} or \texttt{cmplx(0, d1)} via \lcodef{IMU * d1}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{r / z}{real(8) or complex(8), scalar, intent(in)}{Real or complex scaling factor.}
+  \argitem{MATA}{class(Matrix) or class(DMatrix), intent(in)}{Matrix to scale.}
+  \argitem{MATB}{type(Matrix), return value}{Scaled \typename{Matrix} result.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix)  :: m1, m2
+type(DMatrix) :: d1
+
+m1 = Matrix('gaussian', 4, mtype='ZH')
+m2 = 2.0_8 * m1 / 3.0_8            ! preserves mtype='ZH'
+m2 = (0.0_8, 1.0_8) * m1           ! AIMAG /= 0 -> mtype becomes 'ZG'
+d1 = DMatrix('gaussian', 4)
+m2 = (1.0_8, 0.0_8) * d1           ! promote DMatrix to complex Matrix
+\end{lstlisting}
+
+% ===================================================================
+% operator(**) Matrix
+% ===================================================================
+\manentry{Overloaded Operator}{operator(**) (Matrix)}{Matrix: operator(**)}{Computes element-wise exponentiation $(M_{ij})^x$ of a \texttt{Matrix}}{mat:op_pow}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m2 = m1 ** k    ! integer k (pure)
+m2 = m1 ** x    ! real(8) x (pure)
+m2 = m1 ** z    ! complex(8) z (pure)
+\end{lstlisting}
+
+\manheading{Brief}
+Raises each individual entry \texttt{m1 \% v(i,j)} to an integer, real, or complex power, returning a \typename{Matrix} with \texttt{mtype = 'ZG'}.
+
+\manheading{Description}
+This \texttt{pure} operator copies dimensions, bounds, and \texttt{name} from \argname{m1}, sets \texttt{m2 \% mtype = 'ZG'}, and evaluates \texttt{(m1 \% v) ** n} using Fortran's element-wise power intrinsic.
+
+\begin{warnbox}[Element-Wise Exponentiation, Not Matrix Power]
+\lcodef{m1 ** 2} computes the Hadamard (entry-wise) square $(M_{ij})^2$, \emph{not} the matrix product $M \cdot M$. Use \lcodef{m1 * m1} or \lcodef{call mmmult(m1, m1, m2)} for matrix multiplication.
+\end{warnbox}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MAT}{class(Matrix), intent(in)}{Base matrix.}
+  \argitem{n}{integer, real(8), or complex(8), scalar, intent(in)}{Exponent applied element-wise.}
+  \argitem{MATB}{type(Matrix), return value}{Allocated \typename{Matrix} with \texttt{mtype = 'ZG'}.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2
+
+m1 = Matrix('uniform', 4)
+m2 = m1 ** 2       ! m2 % v(i,j) == m1 % v(i,j)**2
+\end{lstlisting}
+
+\mansubgroup{Matrix Multiplication}
+
+% ===================================================================
+% operator(*) Matrix Multiplication
+% ===================================================================
+\manentry{Overloaded Operator}{operator(*) (Matrix Multiplication)}{Matrix: matrix *}{BLAS-backed matrix--matrix and matrix--vector multiplication for \texttt{Matrix}}{mat:op_matmul}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+m3 = m1 * m2;   m3 = m1 * C;   m3 = C * m1   ! Matrix-Matrix / array (pure)
+m3 = m1 * d2;   m3 = d2 * m1                 ! Mixed Matrix * DMatrix (pure)
+v2 = m1 * v1;   v2 = v1 * m1                 ! Matrix-Vector -> Vector
+\end{lstlisting}
+
+\manheading{Brief}
+Computes matrix--matrix products ($A B$) and matrix--vector products ($M v$ or $v^T M$) using \modname{matrix\_mod\_array}'s \texttt{BLAS} wrappers (\texttt{LMATMUL}).
+
+\manheading{Description}
+Overloaded multiplication supports matrix--matrix products between \typename{Matrix}, \typename{DMatrix}, and 2D \typename{complex(8)} arrays, as well as matrix--vector products between \typename{Matrix} and \typename{Vector} (also documented in Section~\ref{sec:class_vector}):
+\begin{itemize}
+  \item \textbf{Matrix--Matrix (\texttt{m1*m2}, \texttt{m1*C}, \texttt{C*m1}, \texttt{m1*d2}, \texttt{d2*m1})}: Any prior metadata or allocation of the LHS target is replaced. Row bounds \texttt{is:ie} come from the left factor (\texttt{lbound(C,1):ubound(C,1)} for array \argname{C}, i.e.\ \texttt{1:size(C,1)}); column bounds \texttt{js:je} come from the right factor (\texttt{1:size(C,2)} for \argname{C}). The result always gets \texttt{mtype = 'ZG'}, and \texttt{name} is copied from the \typename{Matrix} operand (\argname{m1} in all five forms, also in \texttt{C * m1} and \texttt{d2 * m1}). When the left factor is a \typename{Matrix} with \texttt{mtype = 'ZH'}, \texttt{LMATMUL} uses \texttt{BLAS} \texttt{zhemm}; otherwise \texttt{zgemm} is called. If the inner dimensions differ (\texttt{m1 \% n /= m2 \% m}), the program stops with an \texttt{error stop} message naming the procedure (exit status 1).
+  \item \textbf{Matrix--Vector (\texttt{m1*v1}, \texttt{v1*m1})}: \texttt{m1 * v1} returns a \typename{Vector} with \texttt{v2 \% v(m1\%is:m1\%ie)} and \texttt{v2 \% name = v1 \% name} (using \texttt{zhemv} if \texttt{m1 \% mtype = 'ZH'}, else \texttt{zgemv}). Left multiplication \texttt{v1 * m1} computes $M_1^T v_1$ with bounds \texttt{m1\%js:m1\%je} (calling \texttt{LMATMUL(CONJG(m1\%v), v1\%v, type='H')} when \texttt{'ZH'}, else \texttt{zgemv('T',...)}; note that for Hermitian $M_1$, $M_1^T = M_1^*$ so this computes $M_1^T v_1 = (v_1^T M_1)^T$ identically). On a dimension mismatch (\texttt{m1\%n /= v1\%n} or \texttt{m1\%m /= v1\%n}), the program aborts via \texttt{matrix\_error}.
+\end{itemize}
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{lhs, rhs}{Matrix, DMatrix, Vector, or complex(8)(:,:), intent(in)}{Conformable factors to multiply.}
+  \argitem{result}{type(Matrix) or type(Vector), return value}{Allocated matrix or vector product.}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+type(Vector) :: v1, v2
+
+m1 = Matrix('gaussian', 4, is=1, name='M1')
+m2 = Matrix('gaussian', 4, js=10)
+m3 = m1 * m2       ! m3 % v(1:4, 10:13), m3 % name = 'M1', m3 % mtype = 'ZG'
+v1 = Vector('gaussian', 4, name='V1')
+v2 = m1 * v1       ! v2 % v(1:4), v2 % name = 'V1'
+\end{lstlisting}
+
+% ===================================================================
+% mmmult (Matrix)
+% ===================================================================
+\manentry{Pure Generic Subroutine}{mmmult (Matrix)}{Matrix: mmmult}{High-performance zero-allocation BLAS subroutine for \texttt{Matrix} multiplication}{mat:mmmult}
+
+\manheading{Synopsis}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+call mmmult(m1, m2, m3)   ! computes m3 % v = m1 % v . m2 % v
+\end{lstlisting}
+
+\manheading{Brief}
+Computes the matrix product $M_3 = M_1 M_2$ into \argname{m3} (auto-allocating/resizing \argname{m3} if needed, or in-place with zero allocations when \argname{m3} already has matching dimensions).
+
+\manheading{Description}
+If \texttt{m3 \% v} is unallocated or its output dimensions do not match (\texttt{m3 \% m /= m1 \% m .or. m3 \% n /= m2 \% n}), \procname{mmmult} automatically allocates or reconstructs \argname{m3} with bounds \texttt{m1 \% is : m1 \% ie, m2 \% js : m2 \% je}; if \argname{m3} is already allocated with matching \texttt{(m1\%m, m2\%n)} shape, its existing bounds and \texttt{name} are preserved in-place with zero allocations (important for small $N \le 500$ loops vs.\ \lcodef{m3 = m1 * m2}). It then invokes \modname{matrix\_mod\_array}'s \texttt{mmmult(m1 \% v, m2 \% v, m3 \% v, mtype = m1 \% mtype)} (selecting \texttt{BLAS} \texttt{zhemm} for \texttt{m1 \% mtype = 'ZH'} and \texttt{zgemm} otherwise, after checking that \texttt{m1 \% n == m2 \% m}; otherwise the program stops with an \texttt{error stop} message naming the procedure (exit status 1)) and sets \texttt{m3 \% mtype = 'ZG'} (since $M_1 M_2$ is not Hermitian in general). Note that aliasing an input argument as the output (e.g.\ \lcodef{call mmmult(m1, m2, m1)}) is invalid because \argname{MATA}/\argname{MATB} are \texttt{intent(in)} and \argname{MATC} is \texttt{intent(inout)}.
+
+\manheading{Dummy Arguments}
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \argitem{MATA}{class(Matrix), intent(in)}{Left $m \times k$ factor; its \texttt{mtype} selects \texttt{zhemm} (\texttt{'ZH'}) or \texttt{zgemm}.}
+  \argitem{MATB}{class(Matrix), intent(in)}{Right $k \times n$ factor.}
+  \argitem{MATC}{type(Matrix), intent(inout)}{Destination $m \times n$ matrix receiving the product (auto-allocated/resized if needed; sets \texttt{mtype = 'ZG'}).}
+\end{description}
+
+\manheading{Example}
+\lstset{language=[95]Fortran}
+\begin{lstlisting}
+use :: matrix_mod_matrix
+type(Matrix) :: m1, m2, m3
+
+m1 = Matrix('gaussian', 128, mtype='ZH')
+m2 = Matrix('gaussian', 128)
+m3 = Matrix(128)
+call mmmult(m1, m2, m3)   ! fast in-place BLAS zhemm into m3 % v
+\end{lstlisting}
